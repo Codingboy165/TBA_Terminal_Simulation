@@ -5,6 +5,7 @@ import lombok.Setter;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Getter
 @Setter
@@ -12,8 +13,8 @@ public class Gate {
     private int inBoundLanes;
     private int outBoundLanes;
     private int handlingLocations;
-    private List<Truck> trucksAtInboundLanes = new LinkedList<>();
-    private List<Truck> trucksAtOutboundLanes = new LinkedList<>();
+    private List<Truck> trucksAtInboundLanes = new CopyOnWriteArrayList<>();
+    private List<Truck> trucksAtOutboundLanes = new CopyOnWriteArrayList<>();
 
     public Gate(int inBoundLanes, int outBoundLanes, int handlingLocations) {
         this.inBoundLanes = inBoundLanes;

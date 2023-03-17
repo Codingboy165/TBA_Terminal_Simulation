@@ -85,7 +85,7 @@ public class TruckService {
      * @param truck
      */
     public static void handlingLocationAdder(Truck truck) {
-            trucksAtHandlingLocations.add(truck);
+        trucksAtHandlingLocations.add(truck);
     }
 
 
@@ -105,15 +105,17 @@ public class TruckService {
      * can't be added to the outbound-lane
      */
     public static boolean endGateChecker(Truck truck) {
+
         if (!trucksWaitingAtExit.contains(truck)) {
             trucksWaitingAtExit.add(truck);
         }
-            if (checkIfHaveFreePlaceAtExitWithoutThreadLoop()) {
-                 if(gate.getTrucksAtOutboundLanes().contains(truck) && !trucksWaitingAtExit.contains(truck)){
-                     return true;
-                 }
+        if (gate.getTrucksAtOutboundLanes().size() == 0 || gate.getTrucksAtOutboundLanes().size() < gate.getOutBoundLanes()) {
+            gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
+            return true;
         }
+        checkIfHaveFreePlaceAtExitWithoutThreadLoop();
         return false;
+
     }
 
     /**
@@ -194,10 +196,9 @@ public class TruckService {
         //id to be incremented
         trucksWaitingAtExit.add(threadTruck);
         if (gate.getTrucksAtOutboundLanes().size() < gate.getOutBoundLanes()) {
-            gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
+            gate.getTrucksAtOutboundLanes().add(threadTruck);
         } else {
             if (checkIfHaveFreePlaceAtExitWithoutThreadLoop()) {
-                trucksWaitingAtExit.poll();
                 gate.getTrucksAtOutboundLanes().add(threadTruck);
             }
         }
@@ -214,17 +215,13 @@ public class TruckService {
 
         boolean hasFreePlaces = false;
 
-        Iterator<Truck> iterator = gate.getTrucksAtOutboundLanes().iterator();
-        while (iterator.hasNext()) {
-            Truck truck = iterator.next();
+        for (Truck truck : gate.getTrucksAtOutboundLanes()) {
             if (truck.getTruckLocation() != TruckLocation.AT_EXIT_GATE) {
-                if (trucksWaitingAtExit.size() == 1 && (gate.getTrucksAtOutboundLanes().size() == 0 || gate.getOutBoundLanes() != gate.getTrucksAtOutboundLanes().size())) {
-                    gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
-                    hasFreePlaces = true;
-                } else {
-                    iterator.remove();
-                    gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
+                if (trucksWaitingAtExit.size() == 1 && (gate.getTrucksAtOutboundLanes().size() == 0
+                        || gate.getOutBoundLanes() != gate.getTrucksAtOutboundLanes().size())) {
+                    gate.getTrucksAtOutboundLanes().remove(truck);
                     trucksThatArePassedTheStartGate.remove(truck);
+                    hasFreePlaces = true;
                 }
             }
         }
