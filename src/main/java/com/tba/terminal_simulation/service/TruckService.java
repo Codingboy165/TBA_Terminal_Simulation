@@ -107,9 +107,11 @@ public class TruckService {
     public static boolean endGateChecker(Truck truck) {
         if (!trucksWaitingAtExit.contains(truck)) {
             trucksWaitingAtExit.add(truck);
+        }
             if (checkIfHaveFreePlaceAtExitWithoutThreadLoop()) {
-                return gate.getTrucksAtOutboundLanes().contains(truck) && !trucksWaitingAtExit.contains(truck);
-            }
+                 if(gate.getTrucksAtOutboundLanes().contains(truck) && !trucksWaitingAtExit.contains(truck)){
+                     return true;
+                 }
         }
         return false;
     }
@@ -217,6 +219,7 @@ public class TruckService {
             Truck truck = iterator.next();
             if (truck.getTruckLocation() != TruckLocation.AT_EXIT_GATE) {
                 if (trucksWaitingAtExit.size() == 1 && (gate.getTrucksAtOutboundLanes().size() == 0 || gate.getOutBoundLanes() != gate.getTrucksAtOutboundLanes().size())) {
+                    gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
                     hasFreePlaces = true;
                 } else {
                     iterator.remove();

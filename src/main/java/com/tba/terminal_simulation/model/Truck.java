@@ -283,17 +283,6 @@ public class Truck implements Runnable {
 
             TruckService.handlingLocationRemover(this);
 
-            ScheduledExecutorService scheduler2 = Executors.newSingleThreadScheduledExecutor();
-            scheduler2.scheduleAtFixedRate(() -> {
-                if (!TruckService.endGateChecker(this)) {
-                    truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_EXIT_GATE;
-                    System.out.println("The truck with id #" + id + " is waiting at exit lane " +
-                            "because every lane is already in use");
-                } else {
-                    scheduler2.shutdown();
-                }
-            }, 0, 20, TimeUnit.SECONDS);
-
             while(!TruckService.endGateChecker(this)){
                 truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_EXIT_GATE;
                 System.out.println("The truck with id #" + id + " is waiting at exit lane " +
