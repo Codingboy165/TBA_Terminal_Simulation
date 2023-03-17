@@ -2,6 +2,7 @@ package com.tba.terminal_simulation.controller;
 
 import com.tba.terminal_simulation.model.Gate;
 import com.tba.terminal_simulation.model.Truck;
+import com.tba.terminal_simulation.model.TruckLocation;
 import com.tba.terminal_simulation.model.TruckType;
 import com.tba.terminal_simulation.service.Response;
 import com.tba.terminal_simulation.service.TruckService;
@@ -40,7 +41,12 @@ public class TerminalController {
 
     @GetMapping("api/trucks/gate")
     public Map<TruckType,Integer> getAllTruckPerReceiveAnDeliverAtTheGate(){
-        return truckService.getAllTheTrucksFromTheQueue();
+        return truckService.getAllTheTrucksFromTheInboundLanes();
+    }
+
+    @GetMapping("api/trucks/location")
+    public Map<Long, TruckLocation> getAllTrucksLocation(){
+        return truckService.getAllTheTruckLocation();
     }
 
     @PostMapping("api/simulation/restart")

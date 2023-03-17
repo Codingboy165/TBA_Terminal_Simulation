@@ -10,6 +10,7 @@ import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Getter
 @Setter
@@ -22,10 +23,7 @@ public class Truck implements Runnable {
     private Long id;
     //This type it means if a truck is delivering or receive
     private TruckType type;
-    @JsonIgnore
-    private boolean theTruckIsPassedTheStartGate = false;
-    @JsonIgnore
-    private boolean theTruckIsPassedTheEndGate = false;
+    private TruckLocation truckLocation;
     @JsonIgnore
     private int allExerciseTimeBeforeExit;
 
@@ -39,12 +37,6 @@ public class Truck implements Runnable {
     // I don't want to let the User instantiate a truck without telling me if the truck is delivers or receive
     private Truck() {
 
-    }
-    public boolean hasPassedTheStartGate() {
-        return theTruckIsPassedTheStartGate;
-    }
-    public boolean hasPassedTheExitGate() {
-        return theTruckIsPassedTheEndGate;
     }
 
     public double getHandlingTime() {
@@ -61,12 +53,12 @@ public class Truck implements Runnable {
 
         Random random = new Random();
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-        int atGateDeliver = random.nextInt(240000)+120000;
+        int atGateDeliver = random.nextInt(240000) + 120000;
         int atGateReceiver = random.nextInt(420000) + 180000;
         int toTheStack = random.nextInt(61000) + 150000;
         int atTheStackT = (int) getHandlingTime();
         int returningFromTheStack = random.nextInt(61000) + 150000;
-        int atExitGateDeliver = random.nextInt(240000)+120000;
+        int atExitGateDeliver = random.nextInt(240000) + 120000;
         int atExitGateReceiver = random.nextInt(420000) + 180000;
 
 
@@ -76,6 +68,8 @@ public class Truck implements Runnable {
         if (this.type == TruckType.RECEIVE) {
 
             allExerciseTimeBeforeExit = atGateReceiver + toTheStack + atTheStackT + returningFromTheStack + atExitGateReceiver;
+
+            truckLocation = TruckLocation.AT_THE_START_GATE;
 
             System.out.println("The truck with id #" + id + " which receive is at the gate...");
             //Schedule task1 with a delay between 3 minutes and 9 minutes
@@ -93,33 +87,35 @@ public class Truck implements Runnable {
                 executor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
-            //I created this variable because, one thread is checking if this truck passed the gate. If it does
-            //that means I need to remove from the list
-            theTruckIsPassedTheStartGate = true;
+
+            truckLocation = TruckLocation.ON_THE_WAY_TO_THE_STACK;
 
             while (!TruckService.handlingLocationChecker()){
                 try {
-                    Thread.sleep(random.nextInt(5000)+1000);
+                    Thread.sleep(random.nextInt(1000));
                     theTruckCanBeAtTheStackImmediately = true;
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
             }
+
+
             //Here I add this truck to the handlingLocation list. If the user set the handling locations smaller than the
             //inbound lanes, or some trucks are faster and coming to the handling locations and for example the terminal
-            //has only 3 handling location but the trucks which are coming are 4, one is need to wait to others to terminate
+            //has only 3 handling location but the trucks which are coming are 4, one is needed to wait to others to terminate
             //his work at the handling location
             TruckService.handlingLocationAdder(this);
             // Create a new executor instance, which will handle the time for that trucks which are going to the stack
             ScheduledExecutorService goingToStack = Executors.newSingleThreadScheduledExecutor();
             Runnable task2 = () -> System.out.println("The truck with id #" + id + " is at the stack...");
-            if(!theTruckCanBeAtTheStackImmediately){
+            if (!theTruckCanBeAtTheStackImmediately) {
                 // Schedule task2 with a delay between 2 minutes 30 sec and 3 minutes 30 sec
                 goingToStack.schedule(task2, toTheStack, TimeUnit.MILLISECONDS);
-            }else{
+            } else {
                 //If the truck is at the handling location but needs to wait because other truck is already at the handling location
                 //after that truck is going away this truck don't need to wait, the truck can go to the handling location right now
-                goingToStack.schedule(task2, 1, TimeUnit.MILLISECONDS);;
+                goingToStack.schedule(task2, 1, TimeUnit.MILLISECONDS);
+                ;
             }
             goingToStack.shutdown();
             try {
@@ -131,8 +127,10 @@ public class Truck implements Runnable {
                 Thread.currentThread().interrupt();
             }
 
+            truckLocation = TruckLocation.AT_THE_STACK;
+
             // Create a new executor instance, which will handle the time at the stack
-            ScheduledExecutorService atTheStack  = Executors.newSingleThreadScheduledExecutor();
+            ScheduledExecutorService atTheStack = Executors.newSingleThreadScheduledExecutor();
             // Schedule task3 with a delay by the Gamma value
             Runnable task3 = () -> System.out.println("The truck with id #" + id + " returning from the stack...");
             atTheStack.schedule(task3, atTheStackT, TimeUnit.MINUTES);
@@ -145,6 +143,9 @@ public class Truck implements Runnable {
                 atTheStack.shutdownNow();
                 Thread.currentThread().interrupt();
             }
+
+            truckLocation = TruckLocation.RETURNING_FROM_THE_STACK;
+
             //Here we call this static method to remove the truck from the handlingLocation list, and other trucks if the list size
             //not equals with gate.getHandlingLocations() which is returning an int that means other truck can go to the handling location
             TruckService.handlingLocationRemover(this);
@@ -152,12 +153,12 @@ public class Truck implements Runnable {
             //Here I check if the User has entered different inbound and outbound lanes than only that number
             //of trucks to go to the exit lane. If for example 3 truck is returning form the handling location, from the stack
             //and the gate has only 2 outbound lane than 1 truck needs to wait until 1 of 2 trucks passed the exit gate
-            while (!TruckService.endGateChecker(this)){
+            while(!TruckService.endGateChecker(this)){
+                truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_EXIT_GATE;
+                System.out.println("The truck with id #" + id + " is waiting at exit lane " +
+                        "because every lane is already in use");
                 try {
-                    //I check in every minute if this truck can go to the exit gate, to the one of the outbound lane
-                    Thread.sleep(60000);
-                    System.out.println("The truck with id #" + id + "is waiting at exit lane " +
-                            "because every lane is already in use");
+                    Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -179,14 +180,15 @@ public class Truck implements Runnable {
                 Thread.currentThread().interrupt();
             }
 
-            TruckService.endGateRemover(this);
+            truckLocation = TruckLocation.AT_EXIT_GATE;
+
 
             // Create a new executor instance which is handle the time at the exit gate
             ScheduledExecutorService outBoundLaneExecutor = Executors.newSingleThreadScheduledExecutor();
 
             // Schedule task5 with a delay between 3 and 9 minute
             Runnable task5 = () -> System.out.println("The truck with id #" + id + " passed the exit gate");
-            outBoundLaneExecutor.schedule(task5, atExitGateReceiver , TimeUnit.MILLISECONDS);
+            outBoundLaneExecutor.schedule(task5, atExitGateReceiver, TimeUnit.MILLISECONDS);
             outBoundLaneExecutor.shutdown();
             try {
                 if (!outBoundLaneExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
@@ -197,19 +199,24 @@ public class Truck implements Runnable {
                 Thread.currentThread().interrupt();
             }
 
+            TruckService.endGateRemover(this);
+
+            truckLocation = TruckLocation.PASSED_THE_EXIT_GATE;
+
             //I use this variable because I check with a thread if this truck ha passed the end gate. If it passed
             //I remove from the list
-            theTruckIsPassedTheEndGate = true;
 
 
-        }else if (this.type == TruckType.DELIVER) {
+        } else if (this.type == TruckType.DELIVER) {
 
             allExerciseTimeBeforeExit = atGateDeliver + toTheStack + atTheStackT + returningFromTheStack + atExitGateDeliver;
+
+            truckLocation = TruckLocation.AT_THE_START_GATE;
 
             System.out.println("The truck with id #" + id + " which delivers, is at the gate...");
             // Schedule task1 with a delay between 2 minutes and 5 minutes
             Runnable task = () -> System.out.println("The truck with id #" + id + " passed the gate, and now it is going to the stack");
-            executor.schedule(task, atGateDeliver , TimeUnit.MILLISECONDS);
+            executor.schedule(task, random.nextInt(10000)+12000, TimeUnit.MILLISECONDS);
             executor.shutdown();
 
             try {
@@ -221,11 +228,12 @@ public class Truck implements Runnable {
                 Thread.currentThread().interrupt();
             }
 
-            theTruckIsPassedTheStartGate = true;
+            truckLocation = TruckLocation.ON_THE_WAY_TO_THE_STACK;
 
             while (!TruckService.handlingLocationChecker()){
                 try {
                     Thread.sleep(random.nextInt(1000));
+                    truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_STACK;
                     theTruckCanBeAtTheStackImmediately = true;
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
@@ -238,10 +246,11 @@ public class Truck implements Runnable {
             ScheduledExecutorService goingToStack = Executors.newSingleThreadScheduledExecutor();
             Runnable task2 = () -> System.out.println("The truck with id #" + id + " is at the stack...");
 
-            if(!theTruckCanBeAtTheStackImmediately){
-
-                // Schedule task2 with a delay between 2 minutes 30 sec and 3 minutes 30 sec
-                goingToStack.schedule(task2, toTheStack, TimeUnit.MILLISECONDS);
+            if (!theTruckCanBeAtTheStackImmediately) {
+                goingToStack.schedule(task2, 15, TimeUnit.SECONDS);
+            } else {
+                goingToStack.schedule(task2, 1, TimeUnit.MILLISECONDS);
+            }
             goingToStack.shutdown();
             try {
                 if (!goingToStack.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
@@ -251,24 +260,14 @@ public class Truck implements Runnable {
                 goingToStack.shutdownNow();
                 Thread.currentThread().interrupt();
             }
-            }else{
-                goingToStack.schedule(task2,1,TimeUnit.MILLISECONDS);
-                goingToStack.shutdown();
-                try {
-                    if (!goingToStack.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                        goingToStack.shutdownNow();
-                    }
-                } catch (InterruptedException e) {
-                    goingToStack.shutdownNow();
-                    Thread.currentThread().interrupt();
-                }
-            }
+
+            truckLocation = TruckLocation.AT_THE_STACK;
 
             // Create a new executor instance, which will handle the time at the stack
-            ScheduledExecutorService atTheStack  = Executors.newSingleThreadScheduledExecutor();
+            ScheduledExecutorService atTheStack = Executors.newSingleThreadScheduledExecutor();
             // Schedule task3 with a delay between by the Gamma value
             Runnable task3 = () -> System.out.println("The truck with id #" + id + " returning from the stack...");
-            atTheStack.schedule(task3, atTheStackT, TimeUnit.MINUTES);
+            atTheStack.schedule(task3, 1, TimeUnit.MINUTES);
             atTheStack.shutdown();
             try {
                 if (!atTheStack.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
@@ -280,13 +279,27 @@ public class Truck implements Runnable {
                 // handle InterruptedException
             }
 
+            truckLocation = TruckLocation.RETURNING_FROM_THE_STACK;
+
             TruckService.handlingLocationRemover(this);
 
-            while (!TruckService.endGateChecker(this)){
-                try {
-                    Thread.sleep(random.nextInt(5000)+1000);
-                    System.out.println("The truck with id #" + id + "is waiting at exit lane " +
+            ScheduledExecutorService scheduler2 = Executors.newSingleThreadScheduledExecutor();
+            scheduler2.scheduleAtFixedRate(() -> {
+                if (!TruckService.endGateChecker(this)) {
+                    truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_EXIT_GATE;
+                    System.out.println("The truck with id #" + id + " is waiting at exit lane " +
                             "because every lane is already in use");
+                } else {
+                    scheduler2.shutdown();
+                }
+            }, 0, 20, TimeUnit.SECONDS);
+
+            while(!TruckService.endGateChecker(this)){
+                truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_EXIT_GATE;
+                System.out.println("The truck with id #" + id + " is waiting at exit lane " +
+                        "because every lane is already in use");
+                try {
+                    Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -308,14 +321,15 @@ public class Truck implements Runnable {
                 Thread.currentThread().interrupt();
             }
 
-            TruckService.endGateRemover(this);
+            truckLocation = TruckLocation.AT_EXIT_GATE;
+
 
             // Create a new executor instance which is handle the time at the exit gate
             ScheduledExecutorService outBoundLaneExecutor = Executors.newSingleThreadScheduledExecutor();
 
             // Schedule task2 with a delay of 5 seconds
             Runnable task5 = () -> System.out.println("The truck with id #" + id + " passed the exit gate");
-            outBoundLaneExecutor.schedule(task5, atExitGateDeliver, TimeUnit.MINUTES);
+            outBoundLaneExecutor.schedule(task5, atExitGateDeliver, TimeUnit.MILLISECONDS);
             outBoundLaneExecutor.shutdown();
             try {
                 if (!outBoundLaneExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
@@ -326,7 +340,8 @@ public class Truck implements Runnable {
                 Thread.currentThread().interrupt();
             }
 
-            theTruckIsPassedTheEndGate = true;
+            TruckService.endGateRemover(this);
+            truckLocation = TruckLocation.PASSED_THE_EXIT_GATE;
 
         }
     }
