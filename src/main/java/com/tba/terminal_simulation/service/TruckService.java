@@ -104,7 +104,7 @@ public class TruckService {
      * @return true if the truck can be added to the outbound-lane, false if the truck
      * can't be added to the outbound-lane
      */
-    public static boolean endGateChecker(Truck truck) {
+    public synchronized static boolean endGateChecker(Truck truck) {
 
         if (!trucksWaitingAtExit.contains(truck)) {
             trucksWaitingAtExit.add(truck);
@@ -140,7 +140,7 @@ public class TruckService {
             addTruckToTheInBoundLane(truck.get(i));
             i++;
             try {
-                Thread.sleep(10);
+                Thread.sleep(50);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -184,26 +184,6 @@ public class TruckService {
         //Here I return it
     }
 
-    /**
-     * \
-     * The truck is added
-     *
-     * @param threadTruck
-     */
-    public static void addTruckToTheOutBoundLane(Truck threadTruck) {
-        //I created a new truck and I added in the constructor all the behaviours that a truck has
-        //I created a truck with the "new" operator because I want to call the constructor and the
-        //id to be incremented
-        trucksWaitingAtExit.add(threadTruck);
-        if (gate.getTrucksAtOutboundLanes().size() < gate.getOutBoundLanes()) {
-            gate.getTrucksAtOutboundLanes().add(threadTruck);
-        } else {
-            if (checkIfHaveFreePlaceAtExitWithoutThreadLoop()) {
-                gate.getTrucksAtOutboundLanes().add(threadTruck);
-            }
-        }
-    }
-
 
     /**
      * The method checks if the gate has free outbound lane but in the same time removes all the trucks that are in it
@@ -211,17 +191,31 @@ public class TruckService {
      *
      * @return True if the exit gate has free outbound lane. False if all the outbound lane is occupied
      */
-    private static boolean checkIfHaveFreePlaceAtExitWithoutThreadLoop() {
-
+    private synchronized static boolean checkIfHaveFreePlaceAtExitWithoutThreadLoop() {
         boolean hasFreePlaces = false;
 
-        for (Truck truck : gate.getTrucksAtOutboundLanes()) {
-            if (truck.getTruckLocation() != TruckLocation.AT_EXIT_GATE) {
-                if (trucksWaitingAtExit.size() == 1 && (gate.getTrucksAtOutboundLanes().size() == 0
-                        || gate.getOutBoundLanes() != gate.getTrucksAtOutboundLanes().size())) {
-                    gate.getTrucksAtOutboundLanes().remove(truck);
-                    trucksThatArePassedTheStartGate.remove(truck);
-                    hasFreePlaces = true;
+        synchronized (gate.getTrucksAtOutboundLanes()) {
+            Iterator<Truck> iterator = gate.getTrucksAtOutboundLanes().iterator();
+            while (iterator.hasNext()) {
+                synchronized (iterator) {
+                    try {
+                        if (iterator.next() != null) {
+                            Truck truck = iterator.next();
+                            if (truck != null && truck.getTruckLocation() != TruckLocation.AT_EXIT_GATE) {
+                                synchronized (trucksWaitingAtExit) {
+                                    if (trucksWaitingAtExit.size() == 1 && (gate.getTrucksAtOutboundLanes().size() == 0
+                                            || gate.getOutBoundLanes() != gate.getTrucksAtOutboundLanes().size())) {
+                                        iterator.remove();
+                                        trucksThatArePassedTheStartGate.remove(truck);
+                                        hasFreePlaces = true;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (ConcurrentModificationException e) {
+                        // Collection modified by another thread, retry iteration
+                        break;
+                    }
                 }
             }
         }
@@ -379,8 +373,10 @@ public class TruckService {
         allTheTrucks.addAll(trucksWaitingAtExit);
         int i = 0;
         while (i < allTheTrucks.size()) {
-            result.put(allTheTrucks.get(i).getId(), allTheTrucks.get(i).getTruckLocation());
-            i++;
+            if (allTheTrucks.get(i) != null) {
+                result.put(allTheTrucks.get(i).getId(), allTheTrucks.get(i).getTruckLocation());
+                i++;
+            }
         }
         return result;
     }

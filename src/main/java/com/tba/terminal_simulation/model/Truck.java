@@ -1,17 +1,23 @@
 package com.tba.terminal_simulation.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.tba.terminal_simulation.model.TruckLocation;
 import com.tba.terminal_simulation.service.TruckService;
-import lombok.Getter;
-import lombok.Setter;
-import org.apache.commons.math3.distribution.GammaDistribution;
 
-import java.util.Objects;
-import java.util.Random;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+
+
+
+        import com.fasterxml.jackson.annotation.JsonIgnore;
+        import com.tba.terminal_simulation.service.TruckService;
+        import lombok.Getter;
+        import lombok.Setter;
+        import org.apache.commons.math3.distribution.GammaDistribution;
+
+        import java.util.Objects;
+        import java.util.Random;
+        import java.util.concurrent.Executors;
+        import java.util.concurrent.ScheduledExecutorService;
+        import java.util.concurrent.TimeUnit;
+        import java.util.concurrent.atomic.AtomicBoolean;
 
 @Getter
 @Setter
@@ -287,6 +293,11 @@ public class Truck implements Runnable {
             while (!TruckService.endGateChecker(this)) {
                 truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_EXIT_GATE;
                 theTruckCanBeAtTheExitGateImmediately = true;
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             }
 
 

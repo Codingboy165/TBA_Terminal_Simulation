@@ -13,8 +13,8 @@ public class Gate {
     private int inBoundLanes;
     private int outBoundLanes;
     private int handlingLocations;
-    private List<Truck> trucksAtInboundLanes = new CopyOnWriteArrayList<>();
-    private List<Truck> trucksAtOutboundLanes = new CopyOnWriteArrayList<>();
+    private List<Truck> trucksAtInboundLanes = new LinkedList<>();
+    private List<Truck> trucksAtOutboundLanes = new LinkedList<>();
 
     public Gate(int inBoundLanes, int outBoundLanes, int handlingLocations) {
         this.inBoundLanes = inBoundLanes;
