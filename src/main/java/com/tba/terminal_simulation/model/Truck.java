@@ -294,7 +294,7 @@ public class Truck implements Runnable {
                 truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_EXIT_GATE;
                 theTruckCanBeAtTheExitGateImmediately = true;
                 try {
-                    Thread.sleep(500);
+                    Thread.sleep(random.nextInt(3000));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -309,7 +309,7 @@ public class Truck implements Runnable {
             if (!theTruckCanBeAtTheExitGateImmediately) {
                 comingBackFromTheStack.schedule(task4, 20, TimeUnit.SECONDS);
             } else {
-                comingBackFromTheStack.schedule(task4, 1, TimeUnit.NANOSECONDS);
+                comingBackFromTheStack.schedule(task4, 1, TimeUnit.MILLISECONDS);
             }
             comingBackFromTheStack.shutdown();
             try {

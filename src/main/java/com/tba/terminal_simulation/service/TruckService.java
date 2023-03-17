@@ -30,6 +30,7 @@ public class TruckService {
     private static List<Truck> trucksThatArePassedTheStartGate = new LinkedList<>();
     private static Queue<Truck> trucksWaitingAtExit = new LinkedList<>();
     private static List<Truck> trucksAtHandlingLocations = new LinkedList<>();
+    private static Queue<Truck> trucksThatAreFinishedHerWork = new LinkedList<>();
     private ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private boolean alreadyWorkingAtCleaningTheOutboundLane = false;
     private boolean havePlaceAtTheHandlingLocation = false;
@@ -104,18 +105,53 @@ public class TruckService {
      * @return true if the truck can be added to the outbound-lane, false if the truck
      * can't be added to the outbound-lane
      */
-    public synchronized static boolean endGateChecker(Truck truck) {
+    public static boolean endGateChecker(Truck truck) {
 
         if (!trucksWaitingAtExit.contains(truck)) {
+            System.out.println(gate.getTrucksAtOutboundLanes().size());
             trucksWaitingAtExit.add(truck);
         }
-        if (gate.getTrucksAtOutboundLanes().size() == 0 || gate.getTrucksAtOutboundLanes().size() < gate.getOutBoundLanes()) {
+        if (checkIfHaveFreePlaceAtExitWithoutThreadLoop()) {
+            return true;
+        }
+        return false;
+
+    }
+
+    /**
+     * The method checks if the gate has free outbound lane but in the same time removes all the trucks that are in it
+     * the location is no more AT_EXIT_GATE. The method checks only one time without a loop.
+     *
+     * @return True if the exit gate has free outbound lane. False if all the outbound lane is occupied
+     */
+    private static boolean checkIfHaveFreePlaceAtExitWithoutThreadLoop() {
+        boolean hasFreePlaces = false;
+        if (gate.getTrucksAtOutboundLanes().size() == 0 || gate.getOutBoundLanes() != gate.getTrucksAtOutboundLanes().size()) {
             gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
             return true;
         }
-        checkIfHaveFreePlaceAtExitWithoutThreadLoop();
-        return false;
-
+        synchronized (gate.getTrucksAtOutboundLanes()) {
+            Iterator<Truck> iterator = gate.getTrucksAtOutboundLanes().iterator();
+            while (iterator.hasNext()) {
+                try {
+                    Truck truck = iterator.next();
+                    if (truck.getTruckLocation() != TruckLocation.AT_EXIT_GATE) {
+                        trucksThatAreFinishedHerWork.add(truck);
+                        iterator.remove();
+                        gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
+                        trucksThatArePassedTheStartGate.remove(truck);
+                        hasFreePlaces = true;
+                    } else if (gate.getOutBoundLanes() != gate.getTrucksAtOutboundLanes().size()) {
+                        gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
+                        hasFreePlaces = true;
+                    }
+                } catch (ConcurrentModificationException e) {
+                    break;
+                }
+            }
+//
+        }
+        return hasFreePlaces;
     }
 
     /**
@@ -124,33 +160,8 @@ public class TruckService {
      * @param truck
      */
     public static void endGateRemover(Truck truck) {
+        trucksThatAreFinishedHerWork.add(truck);
         gate.getTrucksAtOutboundLanes().remove(truck);
-    }
-
-    /**
-     * This method accept a List of trucks and everytime and call the addTruckToTheInBoundLane()
-     * that many times as truck much as is in the List that is passed by the user
-     *
-     * @param truck
-     * @return a nice response to the REST API
-     */
-    public ResponseEntity<Response> addTrucksToTheInBoundLane(List<Truck> truck) {
-        int i = 0;
-        while (i < truck.size()) {
-            addTruckToTheInBoundLane(truck.get(i));
-            i++;
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        Response response = new Response();
-        response.setStatus("OK");
-        response.setStatusMsg("All truck are sent successfully");
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
     }
 
     /**
@@ -186,40 +197,29 @@ public class TruckService {
 
 
     /**
-     * The method checks if the gate has free outbound lane but in the same time removes all the trucks that are in it
-     * the location is no more AT_EXIT_GATE. The method checks only one time without a loop.
+     * This method accept a List of trucks and everytime and call the addTruckToTheInBoundLane()
+     * that many times as truck much as is in the List that is passed by the user
      *
-     * @return True if the exit gate has free outbound lane. False if all the outbound lane is occupied
+     * @param truck
+     * @return a nice response to the REST API
      */
-    private synchronized static boolean checkIfHaveFreePlaceAtExitWithoutThreadLoop() {
-        boolean hasFreePlaces = false;
-
-        synchronized (gate.getTrucksAtOutboundLanes()) {
-            Iterator<Truck> iterator = gate.getTrucksAtOutboundLanes().iterator();
-            while (iterator.hasNext()) {
-                synchronized (iterator) {
-                    try {
-                        if (iterator.next() != null) {
-                            Truck truck = iterator.next();
-                            if (truck != null && truck.getTruckLocation() != TruckLocation.AT_EXIT_GATE) {
-                                synchronized (trucksWaitingAtExit) {
-                                    if (trucksWaitingAtExit.size() == 1 && (gate.getTrucksAtOutboundLanes().size() == 0
-                                            || gate.getOutBoundLanes() != gate.getTrucksAtOutboundLanes().size())) {
-                                        iterator.remove();
-                                        trucksThatArePassedTheStartGate.remove(truck);
-                                        hasFreePlaces = true;
-                                    }
-                                }
-                            }
-                        }
-                    } catch (ConcurrentModificationException e) {
-                        // Collection modified by another thread, retry iteration
-                        break;
-                    }
-                }
+    public ResponseEntity<Response> addTrucksToTheInBoundLane(List<Truck> truck) {
+        int i = 0;
+        while (i < truck.size()) {
+            addTruckToTheInBoundLane(truck.get(i));
+            i++;
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
             }
         }
-        return hasFreePlaces;
+        Response response = new Response();
+        response.setStatus("OK");
+        response.setStatusMsg("All truck are sent successfully");
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
     }
 
 
@@ -371,6 +371,7 @@ public class TruckService {
         allTheTrucks.addAll(trucksThatArePassedTheStartGate);
         allTheTrucks.addAll(trucksAtHandlingLocations);
         allTheTrucks.addAll(trucksWaitingAtExit);
+        allTheTrucks.addAll(trucksThatAreFinishedHerWork);
         int i = 0;
         while (i < allTheTrucks.size()) {
             if (allTheTrucks.get(i) != null) {
