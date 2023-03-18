@@ -8,13 +8,11 @@ import com.tba.terminal_simulation.model.TruckType;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.lang.reflect.Field;
 import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 //Here is the Service class. This class is responsible for everything
 //Here we can instantiate trucks, lanes.
@@ -26,15 +24,15 @@ public class TruckService {
     //I created a lists because I need to store somewhere all the trucks at different place that the user instantiate
     //I didn't use a database because this is a small application and with simple lists I can store the trucks an anything
     private static Gate gate;
+    private static Object lock = new Object();
     private static Queue<Truck> parkingPlace = new LinkedList<>();
     private static List<Truck> trucksThatArePassedTheStartGate = new LinkedList<>();
     private static Queue<Truck> trucksWaitingAtExit = new LinkedList<>();
     private static List<Truck> trucksAtHandlingLocations = new LinkedList<>();
     private static Queue<Truck> trucksThatAreFinishedHerWork = new LinkedList<>();
-    private ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-    private boolean alreadyWorkingAtCleaningTheOutboundLane = false;
+    private static List<Truck> allTheTrucks = new LinkedList<>();
     private boolean havePlaceAtTheHandlingLocation = false;
-    private boolean alreadyWorkingAtCleaningTheInboundLane = false;
+    private Map<Long, TruckLocation> allTheTruckLocation = new HashMap<>();
 
     public static Gate getGate() {
         return gate;
@@ -71,11 +69,74 @@ public class TruckService {
     }
 
     /**
+     * This method accept a List of trucks and everytime and call the addTruckToTheInBoundLane()
+     * that many times as truck much as is in the List that is passed by the user
+     *
+     * @param trucks
+     * @return a nice response to the REST API
+     */
+    public ResponseEntity<Response> addTrucksToTheInBoundLane(List<Truck> trucks) {
+        int i = 0;
+
+        while (i < trucks.size()) {
+            Truck truck = trucks.get(i);
+            addTruckToTheInBoundLane(truck);
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            i++;
+        }
+        Response response = new Response();
+        response.setStatus("OK");
+        response.setStatusMsg("All truck are sent successfully");
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
+    }
+
+    /**
+     * The truck is added to the Parking place and then if it gate has free place at the inBoundLane then
+     * added to the Inbound Lane and then start the thread
+     *
+     * @param truck
+     * @return The truck that is added to the Parking place
+     */
+    //Here I made a method with which we can add a Truck to the lanes
+    public void addTruckToTheInBoundLane(Truck truck) {
+        //I created a new truck and I added in the constructor all the behaviours that a truck has
+        //I created a truck with the "new" operator because I want to call the constructor and the
+        // id to be incremented
+
+            if (gate != null) {
+                Truck newTruckToBeAdded = new Truck(truck.getType());
+                Thread truckIsReadyToGo = new Thread(newTruckToBeAdded);
+                System.out.println("The truck with id #" + newTruckToBeAdded.getId() + " is at the parking area");
+                newTruckToBeAdded.setTruckLocation(TruckLocation.PARKING_PLACE);
+                allTheTrucks.add(newTruckToBeAdded);
+                parkingPlace.add(newTruckToBeAdded);
+                if (checkIfHaveFreePlaceWithoutThreadLoop()) {
+                    //Here I add the truck to the List
+                    parkingPlace.poll();
+                    gate.getTrucksAtInboundLanes().add(newTruckToBeAdded);
+                    truckIsReadyToGo.start();
+                }
+            } else throw new GateIsNotCreated("ERROR", "No gate has been created");
+            //Here I return it
+    }
+
+
+    /**
      * @return true if is free place at handling location, false if the truck is needed to wait
      */
     public static boolean handlingLocationChecker() {
-
-        return trucksAtHandlingLocations.size() == 0 || trucksAtHandlingLocations.size() < gate.getHandlingLocations();
+        if (trucksAtHandlingLocations != null) {
+            if (trucksAtHandlingLocations.size() == 0 || trucksAtHandlingLocations.size() < gate.getHandlingLocations()) {
+                return true;
+            }
+        }
+        return false;
     }
 
 
@@ -85,7 +146,7 @@ public class TruckService {
      *
      * @param truck
      */
-    public static void handlingLocationAdder(Truck truck) {
+    public synchronized static void handlingLocationAdder(Truck truck) {
         trucksAtHandlingLocations.add(truck);
     }
 
@@ -105,18 +166,24 @@ public class TruckService {
      * @return true if the truck can be added to the outbound-lane, false if the truck
      * can't be added to the outbound-lane
      */
-    public static boolean endGateChecker(Truck truck) {
+    public synchronized static boolean endGateChecker(Truck truck) {
 
         if (!trucksWaitingAtExit.contains(truck)) {
-            System.out.println(gate.getTrucksAtOutboundLanes().size());
             trucksWaitingAtExit.add(truck);
         }
-        if (checkIfHaveFreePlaceAtExitWithoutThreadLoop()) {
-            return true;
-        }
-        return false;
-
+        return checkIfHaveFreePlaceAtExitWithoutThreadLoop();
     }
+
+    /**
+     * This method removes the truck form the outbound_lane
+     *
+     * @param truck
+     */
+    public synchronized static void endGateRemover(Truck truck) {
+        trucksThatAreFinishedHerWork.add(truck);
+        gate.getTrucksAtOutboundLanes().remove(truck);
+    }
+
 
     /**
      * The method checks if the gate has free outbound lane but in the same time removes all the trucks that are in it
@@ -126,11 +193,11 @@ public class TruckService {
      */
     private static boolean checkIfHaveFreePlaceAtExitWithoutThreadLoop() {
         boolean hasFreePlaces = false;
-        if (gate.getTrucksAtOutboundLanes().size() == 0 || gate.getOutBoundLanes() != gate.getTrucksAtOutboundLanes().size()) {
-            gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
-            return true;
-        }
         synchronized (gate.getTrucksAtOutboundLanes()) {
+            if (gate.getTrucksAtOutboundLanes().size() == 0 || gate.getOutBoundLanes() != gate.getTrucksAtOutboundLanes().size()) {
+                gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
+                return true;
+            }
             Iterator<Truck> iterator = gate.getTrucksAtOutboundLanes().iterator();
             while (iterator.hasNext()) {
                 try {
@@ -155,94 +222,15 @@ public class TruckService {
     }
 
     /**
-     * This method removes the truck form the outbound_lane
-     *
-     * @param truck
-     */
-    public static void endGateRemover(Truck truck) {
-        trucksThatAreFinishedHerWork.add(truck);
-        gate.getTrucksAtOutboundLanes().remove(truck);
-    }
-
-    /**
-     * The truck is added to the Parking place and then if it gate has free place at the inBoundLane then
-     * added to the Inbound Lane and then start the thread
-     *
-     * @param truck
-     * @return The truck that is added to the Parking place
-     */
-    //Here I made a method with which we can add a Truck to the lanes
-    public Truck addTruckToTheInBoundLane(Truck truck) {
-        //I created a new truck and I added in the constructor all the behaviours that a truck has
-        //I created a truck with the "new" operator because I want to call the constructor and the
-        // id to be incremented
-        if (gate != null) {
-            Truck newTruckToBeAdded = new Truck(truck.getType());
-            Thread truckIsReadyToGo = new Thread(newTruckToBeAdded);
-            System.out.println("The truck with id #" + newTruckToBeAdded.getId() + " is at the parking area");
-            newTruckToBeAdded.setTruckLocation(TruckLocation.PARKING_PLACE);
-            parkingPlace.add(newTruckToBeAdded);
-            if (checkIfHaveFreePlaceWithoutThreadLoop()) {
-                //Here I add the truck to the List
-                parkingPlace.poll();
-                gate.getTrucksAtInboundLanes().add(newTruckToBeAdded);
-                truckIsReadyToGo.start();
-                return newTruckToBeAdded;
-            }
-            startCheckingFreePlacesAtStartGate();
-            return newTruckToBeAdded;
-        } else throw new GateIsNotCreated("ERROR", "No gate has been created");
-        //Here I return it
-    }
-
-
-    /**
-     * This method accept a List of trucks and everytime and call the addTruckToTheInBoundLane()
-     * that many times as truck much as is in the List that is passed by the user
-     *
-     * @param truck
-     * @return a nice response to the REST API
-     */
-    public ResponseEntity<Response> addTrucksToTheInBoundLane(List<Truck> truck) {
-        int i = 0;
-        while (i < truck.size()) {
-            addTruckToTheInBoundLane(truck.get(i));
-            i++;
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        Response response = new Response();
-        response.setStatus("OK");
-        response.setStatusMsg("All truck are sent successfully");
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
-    }
-
-
-    /**
      * The method starts an executor for searching free places at the start gate. If it founds a truck which is the location
      * is not at the start gate, it will remove from the inbound-lane of the Gate
      */
+    @Scheduled(fixedDelay = 5000)
     public void startCheckingFreePlacesAtStartGate() {
-        scheduler.scheduleAtFixedRate(new CheckerThreadForStartGate(this), 0, 3, TimeUnit.SECONDS); // run every minute
-    }
-
-
-    /**
-     * The method shutdown the executor that is searching for free places at the start gate. But first checks
-     * in a loop the inbound lanes. With just one executor service, because the variable alreadyWorkingAtCleaningTheInboundLane
-     * ensures that only one executor-service cleaning the inbound-lane. If executor service A goes to the emptyTheInboundLane() but
-     * another executor service with name B is there than A comes back to this method and shutdown
-     */
-    public void stopCheckingFreePlacesAtStartGate() {
+        System.out.println("Scheduler is running every 5 seconds.");
+        checkIfHaveFreePlaceAtTheGate();
         emptyTheInboundLane();
-        scheduler.shutdown();
     }
-
 
     /**
      * Allows only one executor service to execute this method. Cleans up the inbound-lane, in form that if
@@ -250,25 +238,25 @@ public class TruckService {
      * ITT MÉG KELL NÉZNI HOGY BIZTOS UGY MÜKÖDIK AHOGY GONDOLOM !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      */
     private void emptyTheInboundLane() {
-        if (!alreadyWorkingAtCleaningTheInboundLane && parkingPlace.isEmpty()) {
-            while (!gate.getTrucksAtInboundLanes().isEmpty()) {
+        if (gate != null) {
+            System.out.println("IM JHONNNNYYYY");
+            if (parkingPlace.isEmpty()) {
                 checkTheParkingSlotsAndThenTheGate();
             }
-            alreadyWorkingAtCleaningTheInboundLane = false;
-            return;
         }
-        alreadyWorkingAtCleaningTheInboundLane = true;
     }
-
 
     /**
      * Here is the upper method continue method. If the truck location is not PARKING_PLACE or AT_THE_START_GATE
      * then remove from the gate Inbound lanes and added to the list trucksThatArePassedTheStartGate
      */
     private void checkTheParkingSlotsAndThenTheGate() {
-        for (int i = 0; i < gate.getTrucksAtInboundLanes().size(); i++) {
-            if (gate.getTrucksAtInboundLanes().get(i).getTruckLocation() != TruckLocation.AT_THE_START_GATE) {
-                trucksThatArePassedTheStartGate.add(gate.getTrucksAtInboundLanes().remove(i));
+        Iterator<Truck> iterator = gate.getTrucksAtInboundLanes().iterator();
+        while (iterator.hasNext()) {
+            Truck truck = iterator.next();
+            if (truck.getTruckLocation() != TruckLocation.AT_THE_START_GATE) {
+                iterator.remove();
+                trucksThatArePassedTheStartGate.add(truck);
             }
         }
     }
@@ -277,26 +265,34 @@ public class TruckService {
      * @return check if the gate has free place at Inbound-lane and at the same time removes all the trucks from gate InBound-lane
      * that location is not equals with AT_THE_START_GATE and it is in the gate.getTrucksAtInboundLanes()
      */
+
     public static boolean checkIfHaveFreePlaceWithoutThreadLoop() {
+        synchronized (lock) {
+            boolean hasFreePlaces = false;
 
-        boolean hasFreePlaces = false;
-
-        if (gate != null) {
-            if (gate.getTrucksAtInboundLanes().size() == 0 || gate.getInBoundLanes() != gate.getTrucksAtInboundLanes().size()) {
-                return true;
-            }
-            Iterator<Truck> iterator = gate.getTrucksAtInboundLanes().iterator();
-            while (iterator.hasNext()) {
-                Truck truck = iterator.next();
-                if (truck.getTruckLocation() != TruckLocation.AT_THE_START_GATE) {
-                    trucksThatArePassedTheStartGate.add(truck);
-                    iterator.remove();
-                    hasFreePlaces = true;
+            if (gate != null) {
+                if (gate.getTrucksAtInboundLanes().size() == 0 || gate.getInBoundLanes() != gate.getTrucksAtInboundLanes().size()) {
+                    return true;
                 }
-            }
-        } else throw new GateIsNotCreated("ERROR", "No gate has been created");
-        return hasFreePlaces;
+                Iterator<Truck> iterator = gate.getTrucksAtInboundLanes().iterator();
+                while (iterator.hasNext()) {
+                    try {
+                        Truck truck = iterator.next();
+                        if (truck.getTruckLocation() != TruckLocation.AT_THE_START_GATE) {
+                            trucksThatArePassedTheStartGate.add(truck);
+                            iterator.remove();
+                            hasFreePlaces = true;
+                        }
+                    } catch (ConcurrentModificationException e) {
+
+                    }
+
+                }
+            } else throw new GateIsNotCreated("ERROR", "No gate has been created");
+            return hasFreePlaces;
+        }
     }
+
 
     /**
      * This method is only executed by executor services which are searching for free places
@@ -305,19 +301,27 @@ public class TruckService {
      * @return true if the start gate has free place at the inbound lanes, false if
      * the start gate didn't ha any free place
      */
-    public boolean checkIfHaveFreePlaceAtTheGate() {
-        boolean hasFreePlaces = false;
-        Iterator<Truck> iterator = gate.getTrucksAtInboundLanes().iterator();
-        while (iterator.hasNext()) {
-            Truck truck = iterator.next();
-            if (truck.getTruckLocation() != TruckLocation.AT_THE_START_GATE) {
-                trucksThatArePassedTheStartGate.add(truck);
-                iterator.remove();
-                checkTheParkingPlace();
-                hasFreePlaces = true;
+    public synchronized void checkIfHaveFreePlaceAtTheGate() {
+        if (gate != null) {
+            synchronized (gate.getTrucksAtInboundLanes()) {
+                Iterator<Truck> iterator = gate.getTrucksAtInboundLanes().iterator();
+                while (iterator.hasNext()) {
+                    try {
+                        Truck truck = iterator.next();
+                        if (truck.getTruckLocation() != TruckLocation.AT_THE_START_GATE) {
+                            trucksThatArePassedTheStartGate.add(truck);
+                            iterator.remove();
+                            checkTheParkingPlace();
+                        }
+                    } catch (ConcurrentModificationException e) {
+                        System.out.println("MAAAAAAAAI YOU HAVE A PROBLEM");
+                    }
+                }
+                if (gate.getTrucksAtInboundLanes().size() < gate.getInBoundLanes()) {
+                    checkTheParkingPlace();
+                }
             }
         }
-        return hasFreePlaces;
     }
 
 
@@ -334,8 +338,6 @@ public class TruckService {
     }
 
 
-    //Here we just got how many trucks are at the gate
-
     /**
      * @return map with two key values, trucks that delivers and trucks that receive, and there values, how many are
      * per delivery and per receive.
@@ -346,6 +348,7 @@ public class TruckService {
             int trucksThatReceive = 0;
             checkTheParkingSlotsAndThenTheGate();
             for (Truck truck : gate.getTrucksAtInboundLanes()) {
+                checkTheParkingSlotsAndThenTheGate();
                 if (truck.getType() == TruckType.DELIVER) {
                     trucksThatDeliver++;
                 } else if (truck.getType() == TruckType.RECEIVE) {
@@ -364,20 +367,11 @@ public class TruckService {
      */
     public Map<Long, TruckLocation> getAllTheTruckLocation() {
         Map<Long, TruckLocation> result = new HashMap<>();
-        List<Truck> allTheTrucks = new LinkedList<>();
-        allTheTrucks.addAll(gate.getTrucksAtInboundLanes());
-        allTheTrucks.addAll(gate.getTrucksAtOutboundLanes());
-        allTheTrucks.addAll(parkingPlace);
-        allTheTrucks.addAll(trucksThatArePassedTheStartGate);
-        allTheTrucks.addAll(trucksAtHandlingLocations);
-        allTheTrucks.addAll(trucksWaitingAtExit);
-        allTheTrucks.addAll(trucksThatAreFinishedHerWork);
         int i = 0;
         while (i < allTheTrucks.size()) {
-            if (allTheTrucks.get(i) != null) {
-                result.put(allTheTrucks.get(i).getId(), allTheTrucks.get(i).getTruckLocation());
-                i++;
-            }
+            Truck truck = allTheTrucks.get(i);
+            result.put(truck.getId(), truck.getTruckLocation());
+            i++;
         }
         return result;
     }
@@ -439,15 +433,15 @@ public class TruckService {
     }
 
     private void resetFields() {
+        gate = null;
+        lock = new Object();
         parkingPlace = new LinkedList<>();
         trucksThatArePassedTheStartGate = new LinkedList<>();
         trucksWaitingAtExit = new LinkedList<>();
         trucksAtHandlingLocations = new LinkedList<>();
-        scheduler.shutdown();
-        scheduler = Executors.newSingleThreadScheduledExecutor();
-        gate = null;
-        alreadyWorkingAtCleaningTheOutboundLane = false;
-        alreadyWorkingAtCleaningTheInboundLane = false;
+        trucksThatAreFinishedHerWork = new LinkedList<>();
+        allTheTruckLocation = new HashMap<>();
+        allTheTrucks = new LinkedList<>();
         havePlaceAtTheHandlingLocation = false;
     }
 

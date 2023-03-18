@@ -25,8 +25,8 @@ public class TerminalController {
     }
 
     @PostMapping("api/truck/send")
-    public Truck createATruck(@RequestBody Truck truck){
-        return truckService.addTruckToTheInBoundLane(truck);
+    public void createATruck(@RequestBody Truck truck){
+        truckService.addTruckToTheInBoundLane(truck);
     }
 
     @PostMapping("api/trucks/send")
