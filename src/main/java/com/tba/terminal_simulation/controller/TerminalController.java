@@ -45,7 +45,7 @@ public class TerminalController {
     }
 
     @GetMapping("api/trucks/location")
-    public Map<Long, TruckLocation> getAllTrucksLocation(){
+    public List<Truck> getAllTrucksLocation(){
         return truckService.getAllTheTruckLocation();
     }
 
