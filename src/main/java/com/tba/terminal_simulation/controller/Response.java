@@ -1,4 +1,4 @@
-package com.tba.terminal_simulation.service;
+package com.tba.terminal_simulation.controller;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

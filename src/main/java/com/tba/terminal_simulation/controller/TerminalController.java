@@ -3,7 +3,6 @@ package com.tba.terminal_simulation.controller;
 import com.tba.terminal_simulation.model.Gate;
 import com.tba.terminal_simulation.model.Truck;
 import com.tba.terminal_simulation.model.TruckType;
-import com.tba.terminal_simulation.service.Response;
 import com.tba.terminal_simulation.service.TruckService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

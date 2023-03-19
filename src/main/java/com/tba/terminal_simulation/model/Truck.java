@@ -40,6 +40,9 @@ public class Truck implements Runnable {
         this.type = type;
     }
 
+    private Truck(){
+
+    }
 
     /**
      * This method is needed for handling time, how long the truck will stay at the stack, at the handling location.

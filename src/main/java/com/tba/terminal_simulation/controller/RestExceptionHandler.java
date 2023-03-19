@@ -1,6 +1,6 @@
 package com.tba.terminal_simulation.controller;
 
-import com.tba.terminal_simulation.service.Response;
+import com.tba.terminal_simulation.exception.GateIsNotCreated;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;

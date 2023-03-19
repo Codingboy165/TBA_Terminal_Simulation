@@ -1,6 +1,7 @@
 package com.tba.terminal_simulation.service;
 
-import com.tba.terminal_simulation.controller.GateIsNotCreated;
+import com.tba.terminal_simulation.exception.GateIsNotCreated;
+import com.tba.terminal_simulation.controller.Response;
 import com.tba.terminal_simulation.model.Gate;
 import com.tba.terminal_simulation.model.Truck;
 import com.tba.terminal_simulation.model.TruckLocation;
@@ -147,7 +148,7 @@ public class TruckService {
      * @return true if the truck can be added to the outbound-lane, false if the truck
      * can't be added to the outbound-lane
      */
-    public static boolean endGateChecker(Truck truck) {
+    public synchronized static boolean endGateChecker(Truck truck) {
         if (gate != null) {
             clearTheOutBoundLane();
             if (!trucksWaitingAtExit.contains(truck)) {

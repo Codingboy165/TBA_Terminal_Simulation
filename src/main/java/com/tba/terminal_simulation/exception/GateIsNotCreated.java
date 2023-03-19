@@ -1,4 +1,4 @@
-package com.tba.terminal_simulation.controller;
+package com.tba.terminal_simulation.exception;
 
 import lombok.Getter;
 
