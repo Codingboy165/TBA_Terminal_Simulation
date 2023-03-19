@@ -40,7 +40,7 @@ public class TerminalController {
     }
 
     @GetMapping("api/trucks/gate")
-    public Map<TruckType,Integer> getAllTruckPerReceiveAnDeliverAtTheGate(){
+    public Map<TruckType,Long> getAllTruckPerReceiveAnDeliverAtTheGate(){
         return truckService.getAllTheTrucksFromTheInboundLanes();
     }
 

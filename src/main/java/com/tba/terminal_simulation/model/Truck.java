@@ -44,6 +44,7 @@ public class Truck implements Runnable {
 
     }
 
+    @JsonIgnore
     public double getHandlingTime() {
         double alpha = 9.0; // shape parameter
         double beta = 3.0; // rate parameter
@@ -106,13 +107,13 @@ public class Truck implements Runnable {
             }
 
 
-            while (!TruckService.handlingLocationChecker()) {
-                try {
-                    Thread.sleep(random.nextInt(3000));
+            while (!TruckService.handlingLocationChecker(this)) {
+//                try {
+//                    Thread.sleep(random.nextInt(3000));
                     truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_STACK;
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
+//                } catch (InterruptedException e) {
+//                    throw new RuntimeException(e);
+//                }
             }
 
 
@@ -120,7 +121,7 @@ public class Truck implements Runnable {
             //inbound lanes, or some trucks are faster and coming to the handling locations and for example the terminal
             //has only 3 handling location but the trucks which are coming are 4, one is needed to wait to others to terminate
             //his work at the handling location
-            TruckService.handlingLocationAdder(this);
+//            TruckService.handlingLocationAdder(this);
             // Create a new executor instance, which will handle the time for that trucks which are going to the stack
             ScheduledExecutorService goingToStack = Executors.newSingleThreadScheduledExecutor();
             Runnable task2 = () -> System.out.println("The truck with id #" + id + " is at the stack...");
@@ -180,13 +181,13 @@ public class Truck implements Runnable {
             //and the gate has only 2 outbound lane than 1 truck needs to wait until 1 of 2 trucks passed the exit gate
             while (!TruckService.endGateChecker(this)) {
                 truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_EXIT_GATE;
-                System.out.println("The truck with id #" + id + " is waiting at exit lane " +
-                        "because every lane is already in use");
-                try {
-                    Thread.sleep(random.nextInt(3000));
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
+//                System.out.println("The truck with id #" + id + " is waiting at exit lane " +
+//                        "because every lane is already in use");
+//                try {
+//                    Thread.sleep(random.nextInt(3000));
+//                } catch (InterruptedException e) {
+//                    throw new RuntimeException(e);
+//                }
             }
 
 
@@ -270,16 +271,16 @@ public class Truck implements Runnable {
             }
 
 
-            while (!TruckService.handlingLocationChecker()) {
-                try {
-                    Thread.sleep(random.nextInt(3000));
+            while (!TruckService.handlingLocationChecker(this)) {
+//                try {
+//                    Thread.sleep(random.nextInt(3000));
                     truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_STACK;
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
+//                } catch (InterruptedException e) {
+//                    throw new RuntimeException(e);
+//                }
             }
 
-            TruckService.handlingLocationAdder(this);
+//            TruckService.handlingLocationAdder(this);
 
             // Create a new executor instance, which will handle the time for that trucks which are going to the stack
             ScheduledExecutorService goingToStack = Executors.newSingleThreadScheduledExecutor();
@@ -338,11 +339,11 @@ public class Truck implements Runnable {
 
             while (!TruckService.endGateChecker(this)) {
                 truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_EXIT_GATE;
-                try {
-                    Thread.sleep(random.nextInt(3000));
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
+//                try {
+//                    Thread.sleep(random.nextInt(3000));
+//                } catch (InterruptedException e) {
+//                    throw new RuntimeException(e);
+//                }
             }
 
 

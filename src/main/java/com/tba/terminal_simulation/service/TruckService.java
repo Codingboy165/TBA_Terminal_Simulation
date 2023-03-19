@@ -27,12 +27,12 @@ public class TruckService {
     private static Gate gate;
     private static Object lock = new Object();
     private static Queue<Truck> parkingPlace = new LinkedList<>();
-    private static List<Truck> trucksThatArePassedTheStartGate = new LinkedList<>();
+    //    private static List<Truck> trucksThatArePassedTheStartGate = new LinkedList<>();
     private static Queue<Truck> trucksWaitingAtExit = new LinkedList<>();
+    private static Queue<Truck> trucksWaitingForFreePlaceAtHandlingLocation = new LinkedList<>();
     private static CopyOnWriteArrayList<Truck> trucksAtHandlingLocations = new CopyOnWriteArrayList<>();
-    private static Queue<Truck> trucksThatAreFinishedHerWork = new LinkedList<>();
-    private static List<Truck> allTheTrucks = new LinkedList<>();
-    private boolean havePlaceAtTheHandlingLocation = false;
+    //    private static Queue<Truck> trucksThatAreFinishedHerWork = new LinkedList<>();
+//    private boolean havePlaceAtTheHandlingLocation = false;
     private List<Truck> allTheTruckLocation = new LinkedList<>();
 
     //Here is the method with which the User can instantiate a gate with handling locations and inbound and outbound lanes
@@ -78,11 +78,6 @@ public class TruckService {
         while (i < trucks.size()) {
             Truck truck = trucks.get(i);
             addTruckToTheInBoundLane(truck);
-//            try {
-//                Thread.sleep(50);
-//            } catch (InterruptedException e) {
-//                throw new RuntimeException(e);
-//            }
             i++;
         }
         Response response = new Response();
@@ -106,49 +101,46 @@ public class TruckService {
         //I created a truck with the "new" operator because I want to call the constructor and the
         // id to be incremented
 
-            if (gate != null) {
-                Truck newTruckToBeAdded = new Truck(truck.getType());
-                System.out.println("The truck with id #" + newTruckToBeAdded.getId() + " is at the parking area");
-                newTruckToBeAdded.setTruckLocation(TruckLocation.PARKING_PLACE);
-                allTheTruckLocation.add(newTruckToBeAdded);
-                allTheTrucks.add(newTruckToBeAdded);
-                parkingPlace.add(newTruckToBeAdded);
-//                if (checkIfHaveFreePlaceWithoutThreadLoop()) {
-//                    //Here I add the truck to the List
-//                    Truck truck1 = parkingPlace.poll();
-//                    Thread truckIsReadyToGo = new Thread(truck1);
-//                    gate.getTrucksAtInboundLanes().add(truck1);
-//                    truckIsReadyToGo.start();
-//                }
-            } else throw new GateIsNotCreated("ERROR", "No gate has been created");
-            //Here I return it
+        if (gate != null) {
+            Truck newTruckToBeAdded = new Truck(truck.getType());
+            System.out.println("The truck with id #" + newTruckToBeAdded.getId() + " is at the parking area");
+            newTruckToBeAdded.setTruckLocation(TruckLocation.PARKING_PLACE);
+            allTheTruckLocation.add(newTruckToBeAdded);
+            parkingPlace.add(newTruckToBeAdded);
+        } else throw new GateIsNotCreated("ERROR", "No gate has been created");
+        //Here I return it
     }
 
 
     /**
      * @return true if is free place at handling location, false if the truck is needed to wait
      */
-    public synchronized static boolean handlingLocationChecker() {
+    public synchronized static boolean handlingLocationChecker(Truck truck) {
+        if (!trucksWaitingForFreePlaceAtHandlingLocation.contains(truck)) {
+            trucksWaitingForFreePlaceAtHandlingLocation.add(truck);
+        }
         if (trucksAtHandlingLocations != null) {
             int handlingLocations = (gate != null) ? gate.getHandlingLocations() : 0;
             if (trucksAtHandlingLocations.size() < handlingLocations) {
+                if(trucksWaitingForFreePlaceAtHandlingLocation.peek() == truck){
+                trucksAtHandlingLocations.add(trucksWaitingForFreePlaceAtHandlingLocation.poll());
                 return true;
+                }
             }
         }
         return false;
     }
 
 
-
-    /**
-     * This method add a truck to the handling location list. If at the handling location didn't is any place than
-     * not will add the truck to the list
-     *
-     * @param truck
-     */
-    public synchronized static void handlingLocationAdder(Truck truck) {
-        trucksAtHandlingLocations.add(truck);
-    }
+//    /**
+//     * This method add a truck to the handling location list. If at the handling location didn't is any place than
+//     * not will add the truck to the list
+//     *
+//     * @param truck
+//     */
+//    public synchronized static void handlingLocationAdder(Truck truck) {
+//        trucksAtHandlingLocations.add(truck);
+//    }
 
 
     /**
@@ -166,12 +158,24 @@ public class TruckService {
      * @return true if the truck can be added to the outbound-lane, false if the truck
      * can't be added to the outbound-lane
      */
-    public synchronized static boolean endGateChecker(Truck truck) {
+    public static boolean endGateChecker(Truck truck) {
 
-        if (!trucksWaitingAtExit.contains(truck)) {
-            trucksWaitingAtExit.add(truck);
+        if (gate != null) {
+            clearTheOutBoundLane();
+            if (!trucksWaitingAtExit.contains(truck)) {
+                trucksWaitingAtExit.add(truck);
+            }
+            if (trucksWaitingAtExit != null) {
+                int outboundLanes = (gate != null) ? gate.getOutBoundLanes() : 0;
+                if (gate != null && gate.getTrucksAtOutboundLanes().size() < outboundLanes) {
+                    if (trucksWaitingAtExit.peek() == truck) {
+                        gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
+                        return true;
+                    }
+                }
+            }
         }
-        return checkIfHaveFreePlaceAtExitWithoutThreadLoop();
+        return false;
     }
 
     /**
@@ -180,7 +184,8 @@ public class TruckService {
      * @param truck
      */
     public synchronized static void endGateRemover(Truck truck) {
-        trucksThatAreFinishedHerWork.add(truck);
+//        trucksThatArePassedTheStartGate
+//        trucksThatAreFinishedHerWork.add(truck);
         gate.getTrucksAtOutboundLanes().remove(truck);
     }
 
@@ -188,75 +193,93 @@ public class TruckService {
     /**
      * The method checks if the gate has free outbound lane but in the same time removes all the trucks that are in it
      * the location is no more AT_EXIT_GATE. The method checks only one time without a loop.
-     *
-     * @return True if the exit gate has free outbound lane. False if all the outbound lane is occupied
      */
-    private static boolean checkIfHaveFreePlaceAtExitWithoutThreadLoop() {
-        boolean hasFreePlaces = false;
+    private static void clearTheOutBoundLane() {
+
+
         synchronized (gate.getTrucksAtOutboundLanes()) {
-            if (gate.getTrucksAtOutboundLanes().size() == 0 || gate.getOutBoundLanes() != gate.getTrucksAtOutboundLanes().size()) {
-                gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
-                return true;
-            }
-            Iterator<Truck> iterator = gate.getTrucksAtOutboundLanes().iterator();
-            while (iterator.hasNext()) {
-                try {
-                    Truck truck = iterator.next();
+            List<Truck> trucks = new ArrayList<>(gate.getTrucksAtOutboundLanes());
+                Iterator<Truck> truckIterator = trucks.iterator();
+                while (truckIterator.hasNext()) {
+                    Truck truck = truckIterator.next();
                     if (truck.getTruckLocation() != TruckLocation.AT_EXIT_GATE) {
-                        trucksThatAreFinishedHerWork.add(truck);
-                        iterator.remove();
-                        gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
-                        trucksThatArePassedTheStartGate.remove(truck);
-                        hasFreePlaces = true;
-                    } else if (gate.getOutBoundLanes() != gate.getTrucksAtOutboundLanes().size()) {
-                        gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
-                        hasFreePlaces = true;
+//                            trucksThatArePassedTheStartGate.add(truck);
+                        truckIterator.remove();
                     }
-                } catch (ConcurrentModificationException e) {
-                    break;
                 }
+                gate.getTrucksAtOutboundLanes().clear();
+                gate.getTrucksAtOutboundLanes().addAll(trucks);
             }
-//
         }
-        return hasFreePlaces;
-    }
+
+
+
+////        boolean hasFreePlaces = false;
+//        synchronized (gate.getTrucksAtOutboundLanes()) {
+////            if (gate.getOutBoundLanes() != gate.getTrucksAtOutboundLanes().size()) {
+////                gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
+////                return true;
+////            }
+//            Iterator<Truck> iterator = gate.getTrucksAtOutboundLanes().iterator();
+//            while (iterator.hasNext()) {
+//                try {
+//                    Truck truck = iterator.next();
+//                    if (truck.getTruckLocation() != TruckLocation.AT_EXIT_GATE) {
+////                        trucksThatAreFinishedHerWork.add(truck);
+//                        iterator.remove();
+////                        gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
+////                        trucksThatArePassedTheStartGate.remove(truck);
+////                        hasFreePlaces = true;
+//                    }
+////                    } else if (gate.getOutBoundLanes() != gate.getTrucksAtOutboundLanes().size()) {
+////                        gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
+////                        hasFreePlaces = true;
+////                    }
+//                } catch (ConcurrentModificationException e) {
+//                    break;
+//                }
+//            }
+////
+//        }
+//    }
 
     /**
      * The method starts an executor for searching free places at the start gate. If it founds a truck which is the location
      * is not at the start gate, it will remove from the inbound-lane of the Gate
      */
-    @Scheduled(fixedDelay = 100)
+    @Scheduled(fixedDelay = 200)
     public void startCheckingFreePlacesAtStartGate() {
         checkIfHaveFreePlaceAtTheGate();
-        emptyTheInboundLane();
     }
 
-    /**
-     * Allows only one executor service to execute this method. Cleans up the inbound-lane, in form that if
-     * a truck location is not PARKING_PLACE and AT_START_GATE than remove from the gate trucksAtInboundLane list
-     * ITT MÉG KELL NÉZNI HOGY BIZTOS UGY MÜKÖDIK AHOGY GONDOLOM !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-     */
-    private void emptyTheInboundLane() {
-        if (gate != null) {
-            if (parkingPlace.isEmpty()) {
-                checkTheParkingSlotsAndThenTheGate();
-            }
-        }
-    }
+//    /**
+//     * Allows only one executor service to execute this method. Cleans up the inbound-lane, in form that if
+//     * a truck location is not PARKING_PLACE and AT_START_GATE than remove from the gate trucksAtInboundLane list
+//     * ITT MÉG KELL NÉZNI HOGY BIZTOS UGY MÜKÖDIK AHOGY GONDOLOM !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//     */
+//    private void emptyTheInboundLane() {
+//        if (gate != null) {
+//            if (parkingPlace.isEmpty()) {
+//                checkTheParkingSlotsAndThenTheGate();
+//            }
+//        }
+//    }
 
     /**
      * Here is the upper method continue method. If the truck location is not PARKING_PLACE or AT_THE_START_GATE
      * then remove from the gate Inbound lanes and added to the list trucksThatArePassedTheStartGate
      */
     private void checkTheParkingSlotsAndThenTheGate() {
-        gate.getTrucksAtInboundLanes().removeIf(truck -> {
-            if (truck.getTruckLocation() != TruckLocation.AT_THE_START_GATE) {
-                trucksThatArePassedTheStartGate.add(truck);
-                return true; // Remove the element from the list
-            } else {
-                return false; // Keep the element in the list
-            }
-        });
+        if(parkingPlace.isEmpty()) {
+            gate.getTrucksAtInboundLanes().removeIf(truck -> {
+                if (truck.getTruckLocation() != TruckLocation.AT_THE_START_GATE) {
+//                trucksThatArePassedTheStartGate.add(truck);
+                    return true; // Remove the element from the list
+                } else {
+                    return false; // Keep the element in the list
+                }
+            });
+        }
     }
 
 
@@ -278,7 +301,7 @@ public class TruckService {
                 while (iterator.hasNext()) {
                     Truck truck = iterator.next();
                     if (truck.getTruckLocation() != TruckLocation.AT_THE_START_GATE) {
-                        trucksThatArePassedTheStartGate.add(truck);
+//                        trucksThatArePassedTheStartGate.add(truck);
                         iterator.remove();
                         hasFreePlaces = true;
                     }
@@ -301,25 +324,25 @@ public class TruckService {
     public synchronized void checkIfHaveFreePlaceAtTheGate() {
         if (gate != null) {
             synchronized (gate.getTrucksAtInboundLanes()) {
-                List<Truck> trucks = gate.getTrucksAtInboundLanes();
-                Iterator<Truck> truckIterator = trucks.iterator();
-                while (truckIterator.hasNext()) {
-                    Truck truck = truckIterator.next();
-                    if (truck.getTruckLocation() != TruckLocation.AT_THE_START_GATE) {
-                        trucksThatArePassedTheStartGate.add(truck);
-                        checkTheParkingPlace();
-                        trucks.remove(truck);
-                    }
-                }
+                List<Truck> trucks = new ArrayList<>(gate.getTrucksAtInboundLanes());
                 if (trucks.size() < gate.getInBoundLanes()) {
                     checkTheParkingPlace();
+                } else {
+                    Iterator<Truck> truckIterator = trucks.iterator();
+                    while (truckIterator.hasNext()) {
+                        Truck truck = truckIterator.next();
+                        if (truck.getTruckLocation() != TruckLocation.AT_THE_START_GATE) {
+//                            trucksThatArePassedTheStartGate.add(truck);
+                            truckIterator.remove();
+//                            checkTheParkingPlace();
+                        }
+                    }
+                    gate.getTrucksAtInboundLanes().clear();
+                    gate.getTrucksAtInboundLanes().addAll(trucks);
                 }
             }
         }
     }
-
-
-
 
 
     /**
@@ -331,6 +354,15 @@ public class TruckService {
             Thread truckIsReadyToGo = new Thread(truck);
             gate.getTrucksAtInboundLanes().add(truck);
             truckIsReadyToGo.start();
+        } else {
+            gate.getTrucksAtInboundLanes().removeIf(truck -> {
+                if (truck.getTruckLocation() != TruckLocation.AT_THE_START_GATE) {
+//                    trucksThatArePassedTheStartGate.add(truck);
+                    return true; // Remove the element from the list
+                } else {
+                    return false; // Keep the element in the list
+                }
+            });
         }
     }
 
@@ -339,20 +371,12 @@ public class TruckService {
      * @return map with two key values, trucks that delivers and trucks that receive, and there values, how many are
      * per delivery and per receive.
      */
-    public Map<TruckType, Integer> getAllTheTrucksFromTheInboundLanes() {
+    public Map<TruckType, Long> getAllTheTrucksFromTheInboundLanes() {
         if (gate != null) {
-            int trucksThatDeliver = 0;
-            int trucksThatReceive = 0;
-            checkTheParkingSlotsAndThenTheGate();
-            for (Truck truck : gate.getTrucksAtInboundLanes()) {
-                checkTheParkingSlotsAndThenTheGate();
-                if (truck.getType() == TruckType.DELIVER) {
-                    trucksThatDeliver++;
-                } else if (truck.getType() == TruckType.RECEIVE) {
-                    trucksThatReceive++;
-                }
-            }
-            Map<TruckType, Integer> trucks = new HashMap<>();
+            Map<TruckType, Long> trucks = new HashMap<>();
+//            checkTheParkingSlotsAndThenTheGate();
+            long trucksThatDeliver = allTheTruckLocation.stream().filter(truck -> truck.getTruckLocation() == TruckLocation.AT_THE_START_GATE).filter(truck -> truck.getType() == TruckType.DELIVER).count();
+            long trucksThatReceive = allTheTruckLocation.stream().filter(truck -> truck.getTruckLocation() == TruckLocation.AT_THE_START_GATE).filter(truck -> truck.getType() == TruckType.RECEIVE).count();
             trucks.put(TruckType.DELIVER, trucksThatDeliver);
             trucks.put(TruckType.RECEIVE, trucksThatReceive);
             return trucks;
@@ -364,14 +388,6 @@ public class TruckService {
      */
     public List<Truck> getAllTheTruckLocation() {
         return allTheTruckLocation;
-//        Map<Long, TruckLocation> result = new HashMap<>();
-//        int i = 0;
-//        while (i < allTheTrucks.size()) {
-//            Truck truck = allTheTrucks.get(i);
-//            result.put(truck.getId(), truck.getTruckLocation());
-//            i++;
-//        }
-//        return result;
     }
 
 
@@ -434,12 +450,11 @@ public class TruckService {
         gate = null;
         lock = new Object();
         parkingPlace = new LinkedList<>();
-        trucksThatArePassedTheStartGate = new LinkedList<>();
+//        trucksThatArePassedTheStartGate = new LinkedList<>();
         trucksWaitingAtExit = new LinkedList<>();
         trucksAtHandlingLocations = new CopyOnWriteArrayList<>();
-        trucksThatAreFinishedHerWork = new LinkedList<>();
-        allTheTrucks = new LinkedList<>();
-        havePlaceAtTheHandlingLocation = false;
+//        trucksThatAreFinishedHerWork = new LinkedList<>();
+//        havePlaceAtTheHandlingLocation = false;
         allTheTruckLocation = new LinkedList<>();
     }
 
