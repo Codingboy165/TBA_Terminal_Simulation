@@ -2,7 +2,6 @@ package com.tba.terminal_simulation.controller;
 
 import com.tba.terminal_simulation.model.Gate;
 import com.tba.terminal_simulation.model.Truck;
-import com.tba.terminal_simulation.model.TruckLocation;
 import com.tba.terminal_simulation.model.TruckType;
 import com.tba.terminal_simulation.service.Response;
 import com.tba.terminal_simulation.service.TruckService;
@@ -49,8 +48,4 @@ public class TerminalController {
         return truckService.getAllTheTruckLocation();
     }
 
-    @PostMapping("api/simulation/restart")
-    public ResponseEntity<Response> restartTheSimulation(){
-        return truckService.restartTheSimulation();
-    }
 }

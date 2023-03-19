@@ -1,5 +1,7 @@
 package com.tba.terminal_simulation.model;
 
+//Here I made an enum because a truck can have maximum 9 location in all his travel
+//from start gate to exit gate
 public enum TruckLocation {
 
     PARKING_PLACE,
