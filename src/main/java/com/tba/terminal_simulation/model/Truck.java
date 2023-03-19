@@ -104,7 +104,6 @@ public class Truck implements Runnable {
             Runnable task = () -> System.out.println("The truck with id #" + id + " passed the gate, and now it is going to the stack");
             executor.schedule(task, atGateReceiver, TimeUnit.MILLISECONDS);
             executor.shutdown();
-
             try {
                 if (!executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
                     executor.shutdownNow();
@@ -122,6 +121,7 @@ public class Truck implements Runnable {
             //I make another scheduledExecutorService to schedule the time that truck is spend by going to stack
             ScheduledExecutorService goingToStackArea = Executors.newSingleThreadScheduledExecutor();
             Runnable task2 = () -> System.out.println("The truck with id #" + id + " is at the stack area...");
+            //Schedule task2 with a random delay between 2:30 minute and 3:30 minutes
             goingToStackArea.schedule(task2, toTheStack, TimeUnit.MILLISECONDS);
             goingToStackArea.shutdown();
             try {
@@ -145,15 +145,14 @@ public class Truck implements Runnable {
             }
 
             System.out.println("The truck with id #" + id + " is at the stack...");
-
             //If the truck pass the checker that means the truck is no need to wait anymore. This truck is at the stack now
             truckLocation = TruckLocation.AT_THE_STACK;
 
             // Create a new executor instance, which will handle the time at the stack
             ScheduledExecutorService atTheStack = Executors.newSingleThreadScheduledExecutor();
+            Runnable task3 = () -> System.out.println("The truck with id #" + id + " returning from the stack...");
             // Schedule task3 with a delay by the Gamma value
-            Runnable task4 = () -> System.out.println("The truck with id #" + id + " returning from the stack...");
-            atTheStack.schedule(task4, atTheStackT, TimeUnit.MINUTES);
+            atTheStack.schedule(task3, atTheStackT, TimeUnit.MINUTES);
             atTheStack.shutdown();
             try {
                 if (!atTheStack.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
@@ -173,8 +172,9 @@ public class Truck implements Runnable {
             //I create this executor service to handle the time for the truck which returning from the stack, from the
             //handling location
             ScheduledExecutorService atExitGateArea = Executors.newSingleThreadScheduledExecutor();
-            Runnable task5 = () -> System.out.println("The truck with id #" + id + " is near at the exit gate...");
-            atExitGateArea.schedule(task5, returningFromTheStack, TimeUnit.MILLISECONDS);
+            Runnable task4 = () -> System.out.println("The truck with id #" + id + " is near at the exit gate...");
+            //Schedule task4 with a delay between 2:30 minute and 3:30 minutes
+            atExitGateArea.schedule(task4, returningFromTheStack, TimeUnit.MILLISECONDS);
             atExitGateArea.shutdown();
 
             try {
@@ -203,9 +203,9 @@ public class Truck implements Runnable {
 
             // Create a new executor instance which is handle the time that the truck is spending at the exit gate
             ScheduledExecutorService outBoundLaneExecutor = Executors.newSingleThreadScheduledExecutor();
-            // Schedule task7 with a delay between 3 and 9 minute
-            Runnable task7 = () -> System.out.println("The truck with id #" + id + " passed the exit gate");
-            outBoundLaneExecutor.schedule(task7, atExitGateReceiver, TimeUnit.MILLISECONDS);
+            // Schedule task5 with a delay between 3 and 9 minute
+            Runnable task5 = () -> System.out.println("The truck with id #" + id + " passed the exit gate");
+            outBoundLaneExecutor.schedule(task5, atExitGateReceiver, TimeUnit.MILLISECONDS);
             outBoundLaneExecutor.shutdown();
             try {
                 if (!outBoundLaneExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
@@ -235,10 +235,9 @@ public class Truck implements Runnable {
             System.out.println("The truck with id #" + id + " which delivers, is at the gate...");
             ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
             Runnable task = () -> System.out.println("The truck with id #" + id + " passed the gate, and now it is going to the stack");
-            // Schedule task1 with a delay between 2 minutes and 5 minutes
+            // Schedule task with a delay between 2 minutes and 5 minutes
             executor.schedule(task, atGateDeliver, TimeUnit.MILLISECONDS);
             executor.shutdown();
-
             try {
                 if (!executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
                     executor.shutdownNow();
@@ -255,9 +254,9 @@ public class Truck implements Runnable {
 
             //I make another scheduledExecutorService to schedule the time that truck is spend by going to stack
             ScheduledExecutorService goingToStackArea = Executors.newSingleThreadScheduledExecutor();
-            Runnable task7 = () -> System.out.println("The truck with id #" + id + " is at the stack area...");
+            Runnable task2 = () -> System.out.println("The truck with id #" + id + " is at the stack area...");
             //Schedule task2 with a delay between 2:30 and 3:30 minutes
-            goingToStackArea.schedule(task7, toTheStack, TimeUnit.MILLISECONDS);
+            goingToStackArea.schedule(task2, toTheStack, TimeUnit.MILLISECONDS);
             goingToStackArea.shutdown();
             try {
                 if (!goingToStackArea.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
@@ -306,9 +305,9 @@ public class Truck implements Runnable {
 
             // Create a new executor instance, which will handle the time for that trucks which are coming back from the stack
             ScheduledExecutorService atExitGateArea = Executors.newSingleThreadScheduledExecutor();
-            Runnable task6 = () -> System.out.println("The truck with id #" + id + " is near at the exit gate...");
-            // Schedule task6 with a delay between 2 minutes 30 sec and 3 minutes 30 sec
-            atExitGateArea.schedule(task6, atGateDeliver, TimeUnit.MILLISECONDS);
+            Runnable task4 = () -> System.out.println("The truck with id #" + id + " is near at the exit gate...");
+            // Schedule task4 with a delay between 2 minutes 30 sec and 3 minutes 30 sec
+            atExitGateArea.schedule(task4, returningFromTheStack, TimeUnit.MILLISECONDS);
             atExitGateArea.shutdown();
 
             try {
