@@ -228,8 +228,12 @@ public class TruckService {
     public Map<TruckType, Long> getAllTheTrucksFromTheInboundLanes() {
         if (gate != null) {
             Map<TruckType, Long> trucks = new HashMap<>();
-            long trucksThatDeliver = allTheTruckLocation.stream().filter(truck -> truck.getTruckLocation() == TruckLocation.AT_THE_START_GATE).filter(truck -> truck.getType() == TruckType.DELIVER).count();
-            long trucksThatReceive = allTheTruckLocation.stream().filter(truck -> truck.getTruckLocation() == TruckLocation.AT_THE_START_GATE).filter(truck -> truck.getType() == TruckType.RECEIVE).count();
+            long trucksThatDeliver = gate.getTrucksAtInboundLanes().stream().
+                    filter(truck -> truck.getTruckLocation() == TruckLocation.AT_THE_START_GATE).
+                    filter(truck -> truck.getType() == TruckType.DELIVER).count();
+            long trucksThatReceive = gate.getTrucksAtInboundLanes().stream().
+                    filter(truck -> truck.getTruckLocation() == TruckLocation.AT_THE_START_GATE).
+                    filter(truck -> truck.getType() == TruckType.RECEIVE).count();
             trucks.put(TruckType.DELIVER, trucksThatDeliver);
             trucks.put(TruckType.RECEIVE, trucksThatReceive);
             return trucks;
