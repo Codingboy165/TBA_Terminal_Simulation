@@ -43,6 +43,7 @@ public class Truck implements Runnable {
 
     /**
      * This method is needed for handling time, how long the truck will stay at the stack, at the handling location.
+     *
      * @return the time which is needed the truck to stay at the stack
      */
     @JsonIgnore

@@ -33,8 +33,9 @@ public class TruckService {
     /**
      * The method check if the user didn't pass negative integers. If everything is fine, then the method
      * will create a gate with the input data
-     * @param inBoundLanes the number of inbound lanes
-     * @param outBoundLanes the number of outbound lanes
+     *
+     * @param inBoundLanes      the number of inbound lanes
+     * @param outBoundLanes     the number of outbound lanes
      * @param handlingLocations the number of handling location
      * @return a nice response to the REST API
      */
@@ -59,28 +60,37 @@ public class TruckService {
     /**
      * This method accept a List of trucks and everytime and call the addTruckToTheInBoundLane()
      * that many times as truck much as is in the List that is passed by the user
+     *
      * @param trucks a list with trucks
      * @return a nice response to the REST API
      */
     public ResponseEntity<Response> addTrucksToTheInBoundLane(List<Truck> trucks) {
-        int i = 0;
-
-        while (i < trucks.size()) {
-            Truck truck = trucks.get(i);
-            addTruckToTheInBoundLane(truck);
-            i++;
-        }
         Response response = new Response();
-        response.setStatus("OK");
-        response.setStatusMsg("All truck are sent successfully");
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
+        if (gate != null) {
+            int i = 0;
+            while (i < trucks.size()) {
+                Truck truck = trucks.get(i);
+                addTruckToTheInBoundLane(truck);
+                i++;
+            }
+            response.setStatus("OK");
+            response.setStatusMsg("All truck are sent successfully");
+            return ResponseEntity
+                    .status(HttpStatus.CREATED)
+                    .body(response);
+        } else {
+            response.setStatus("ERROR");
+            response.setStatusMsg("The gate can't be created with negative values");
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(response);
+        }
     }
 
     /**
      * This method ensures that the truck is added to the Parking place. The method which is annotated with @Scheduled
      * that method will ensure that the truck will start from the parking place
+     *
      * @param truck a truck object
      */
     public void addTruckToTheInBoundLane(Truck truck) {
@@ -98,6 +108,7 @@ public class TruckService {
      * This method will add the truck to the handling location waiting list which is a queue. If the queue head is the truck
      * that we passed as param than removes the queue head, and we add to the handling location list. Finally, the method returns
      * true if all these things happens, and let the truck leave this method and continue his tasks
+     *
      * @param truck a truck object
      * @return true if is free place at handling location, false if the truck is needed to wait
      */
@@ -107,9 +118,9 @@ public class TruckService {
         }
         int handlingLocations = (gate != null) ? gate.getHandlingLocations() : 0;
         if (trucksAtHandlingLocations.size() < handlingLocations) {
-            if(trucksWaitingForFreePlaceAtHandlingLocation.peek() == truck){
-            trucksAtHandlingLocations.add(trucksWaitingForFreePlaceAtHandlingLocation.poll());
-            return true;
+            if (trucksWaitingForFreePlaceAtHandlingLocation.peek() == truck) {
+                trucksAtHandlingLocations.add(trucksWaitingForFreePlaceAtHandlingLocation.poll());
+                return true;
             }
         }
         return false;
@@ -117,6 +128,7 @@ public class TruckService {
 
     /**
      * The method remove the truck from the handling location list
+     *
      * @param truck a truck object
      */
     public static void handlingLocationRemover(Truck truck) {
@@ -130,6 +142,7 @@ public class TruckService {
      * the queue head is the truck that we passed as param, if it is than removes the queue head, and it adds to the
      * gates outbound lane. Finally, the method returns true if all these things happens, and let the truck leave this
      * method and continue his tasks
+     *
      * @param truck a truck object
      * @return true if the truck can be added to the outbound-lane, false if the truck
      * can't be added to the outbound-lane
@@ -168,10 +181,10 @@ public class TruckService {
         synchronized (gate.getTrucksAtOutboundLanes()) {
             List<Truck> trucks = new ArrayList<>(gate.getTrucksAtOutboundLanes());
             trucks.removeIf(truck -> truck.getTruckLocation() != TruckLocation.AT_EXIT_GATE);
-                gate.getTrucksAtOutboundLanes().clear();
-                gate.getTrucksAtOutboundLanes().addAll(trucks);
-            }
+            gate.getTrucksAtOutboundLanes().clear();
+            gate.getTrucksAtOutboundLanes().addAll(trucks);
         }
+    }
 
     /**
      * This method will run in every 100 milliseconds, and it will start the trucks from the parking place
@@ -222,6 +235,7 @@ public class TruckService {
 
     /**
      * This method return all the trucks (the number, how many) which are at start gate grouped by truck type
+     *
      * @return map with two key values, trucks that delivers and trucks that receive, and there values, how many are
      * per delivery and per receive.
      */
