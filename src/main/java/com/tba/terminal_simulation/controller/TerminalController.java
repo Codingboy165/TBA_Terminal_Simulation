@@ -22,26 +22,18 @@ public class TerminalController {
         this.truckService = truckService;
     }
 
-    @PostMapping("api/truck/send")
-    public void createATruck(@RequestBody Truck truck){
-        truckService.addTruckToTheInBoundLane(truck);
-    }
-
-    @PostMapping("api/trucks/send")
-    public ResponseEntity<Response> createATruck(@RequestBody List<Truck> truck){
-        return truckService.addTrucksToTheInBoundLane(truck);
-    }
-
     @PostMapping("api/gate/create")
     public ResponseEntity<Response> createAGate(@RequestBody Gate gate){
         return truckService.createAGate(gate.getInBoundLanes(), gate.getOutBoundLanes(), gate.getHandlingLocations());
     }
-
+    @PostMapping("api/trucks/send")
+    public ResponseEntity<Response> createATruck(@RequestBody List<Truck> truck){
+        return truckService.addTrucksToTheInBoundLane(truck);
+    }
     @GetMapping("api/trucks/gate")
     public Map<TruckType,Long> getAllTruckPerReceiveAnDeliverAtTheGate(){
         return truckService.getAllTheTrucksFromTheInboundLanes();
     }
-
     @GetMapping("api/trucks/location")
     public List<Truck> getAllTrucksLocation(){
         return truckService.getAllTheTruckLocation();

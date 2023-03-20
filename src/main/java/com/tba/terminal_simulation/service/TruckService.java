@@ -70,8 +70,8 @@ public class TruckService {
     }
 
     /**
-     * This method accept a List of trucks and everytime call the addTruckToTheInBoundLane()
-     * that many times as truck much as is in the List that is passed by the user
+     * This method accept a List of trucks and call the addTruckToTheInBoundLane()
+     * that many times as trucks are in the List that is passed by the user
      *
      * @param trucks a list with trucks
      * @return a nice response to the REST API
