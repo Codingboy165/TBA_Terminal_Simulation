@@ -13,6 +13,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 //Here is the Service class. This class is responsible for everything
@@ -25,11 +26,21 @@ public class TruckService {
     //I created a lists because I need to store somewhere all the trucks at different place that the user instantiate
     //I didn't use a database because this is a small application and with simple lists I can store the trucks an anything
     private static Gate gate;
-    private static final Queue<Truck> parkingPlace = new LinkedList<>();
-    private static final Queue<Truck> trucksWaitingAtExit = new LinkedList<>();
-    private static final Queue<Truck> trucksWaitingForFreePlaceAtHandlingLocation = new LinkedList<>();
-    private static final CopyOnWriteArrayList<Truck> trucksAtHandlingLocations = new CopyOnWriteArrayList<>();
+    private static final Queue<Truck> parkingPlace = new ConcurrentLinkedQueue<>();
+    private static final Queue<Truck> trucksWaitingAtExit = new ConcurrentLinkedQueue<>();
+    private static final Queue<Truck> trucksWaitingForFreePlaceAtHandlingLocation = new ConcurrentLinkedQueue<>();
+    private static final List<Truck> trucksAtHandlingLocations = new CopyOnWriteArrayList<>();
     private final List<Truck> allTheTruckLocation = new LinkedList<>();
+
+    /**
+     * This method will run in every 100 milliseconds, and it will start the trucks from the parking place
+     * if the gate has free place, and in the same time clear the inbound lanes if the truck in it doesn't have location
+     * AT_START_GATE
+     */
+    @Scheduled(fixedDelay = 100)
+    public void startCheckingFreePlacesAtStartGate() {
+        clearTheInBoundLane();
+    }
 
     /**
      * The method check if the user didn't pass negative integers. If everything is fine, then the method
@@ -117,8 +128,7 @@ public class TruckService {
         if (!trucksWaitingForFreePlaceAtHandlingLocation.contains(truck)) {
             trucksWaitingForFreePlaceAtHandlingLocation.add(truck);
         }
-        int handlingLocations = (gate != null) ? gate.getHandlingLocations() : 0;
-        if (trucksAtHandlingLocations.size() < handlingLocations) {
+        if (trucksAtHandlingLocations.size() < gate.getHandlingLocations()) {
             if (trucksWaitingForFreePlaceAtHandlingLocation.peek() == truck) {
                 trucksAtHandlingLocations.add(trucksWaitingForFreePlaceAtHandlingLocation.poll());
                 return true;
@@ -148,59 +158,24 @@ public class TruckService {
      * @return true if the truck can be added to the outbound-lane, false if the truck
      * can't be added to the outbound-lane
      */
-    public synchronized static boolean endGateChecker(Truck truck) {
-        if (gate != null) {
-            clearTheOutBoundLane();
-            if (!trucksWaitingAtExit.contains(truck)) {
-                trucksWaitingAtExit.add(truck);
-            }
-            int outboundLanes = gate.getOutBoundLanes();
-            if (gate.getTrucksAtOutboundLanes().size() < outboundLanes) {
-                if (trucksWaitingAtExit.peek() == truck) {
-                    gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
-                    return true;
-                }
+    public synchronized static boolean endGateChecker(Truck truck){
+        if (!trucksWaitingAtExit.contains(truck)) {
+            trucksWaitingAtExit.add(truck);
+        }
+        if (gate.getTrucksAtOutboundLanes().size() < gate.getOutBoundLanes()) {
+            if (trucksWaitingAtExit.peek() == truck) {
+                gate.getTrucksAtOutboundLanes().add(trucksWaitingAtExit.poll());
+                return true;
             }
         }
         return false;
     }
 
-    /**
-     * This method removes the truck form the gate outbound_lane
-     * @param truck a truck object
-     */
-    public synchronized static void endGateRemover(Truck truck) {
-        gate.getTrucksAtOutboundLanes().remove(truck);
-    }
-
-
-    /**
-     * The method checks if the gate has free outbound lane but in the same time removes all the trucks that are in it
-     * the location is no more AT_EXIT_GATE. The method checks only one time without a loop.
-     */
-    private static void clearTheOutBoundLane() {
-        synchronized (gate.getTrucksAtOutboundLanes()) {
-            List<Truck> trucks = new ArrayList<>(gate.getTrucksAtOutboundLanes());
-            trucks.removeIf(truck -> truck.getTruckLocation() != TruckLocation.AT_EXIT_GATE);
-            gate.getTrucksAtOutboundLanes().clear();
-            gate.getTrucksAtOutboundLanes().addAll(trucks);
-        }
-    }
-
-    /**
-     * This method will run in every 100 milliseconds, and it will start the trucks from the parking place
-     * if the gate has free place, and in the same time clear the inbound lanes if the truck in it doesn't have location
-     * AT_START_GATE
-     */
-    @Scheduled(fixedDelay = 100)
-    public void startCheckingFreePlacesAtStartGate() {
-        checkIfHaveFreePlaceAtTheGate();
-    }
 
     /**
      * This method is only executed by the method which is annotated with @Scheduled
      */
-    public synchronized void checkIfHaveFreePlaceAtTheGate() {
+    public synchronized void clearTheInBoundLane() {
         if (gate != null) {
             synchronized (gate.getTrucksAtInboundLanes()) {
                 List<Truck> trucks = new ArrayList<>(gate.getTrucksAtInboundLanes());
@@ -213,6 +188,15 @@ public class TruckService {
                 }
             }
         }
+    }
+
+
+    /**
+     * This method removes the truck form the outbound_lane
+     * @param truck object
+     */
+    public synchronized static void endGateRemover(Truck truck) {
+        gate.getTrucksAtOutboundLanes().remove(truck);
     }
 
 

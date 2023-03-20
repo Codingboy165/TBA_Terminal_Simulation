@@ -40,7 +40,7 @@ public class Truck implements Runnable {
         this.type = type;
     }
 
-    private Truck(){
+    private Truck() {
 
     }
 
@@ -179,7 +179,6 @@ public class Truck implements Runnable {
             //Schedule task4 with a delay between 2:30 minute and 3:30 minutes
             atExitGateArea.schedule(task4, returningFromTheStack, TimeUnit.MILLISECONDS);
             atExitGateArea.shutdown();
-
             try {
                 if (!atExitGateArea.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
                     atExitGateArea.shutdownNow();
@@ -196,8 +195,6 @@ public class Truck implements Runnable {
             while (!TruckService.endGateChecker(this)) {
                 truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_EXIT_GATE;
             }
-
-            System.out.println("The truck with id #" + id + " is at the exit gate...");
 
             //If the truck passed checker that means the truck it doesn't need to wait anymore, and we can update the truckLocation
             //to AT_EXIT_GATE
@@ -219,11 +216,11 @@ public class Truck implements Runnable {
                 Thread.currentThread().interrupt();
             }
 
-            //Here we remove the truck from the gate outbound lane
-            TruckService.endGateRemover(this);
-
             //And finally we update the truckLocation with value PASSED_THE_EXIT_GATE
             truckLocation = TruckLocation.PASSED_THE_EXIT_GATE;
+
+            //Here we remove the truck from the outbound lane
+            TruckService.endGateRemover(this);
 
             //This truck has done his job :)
             //The thread will shut down
@@ -279,8 +276,6 @@ public class Truck implements Runnable {
             while (!TruckService.handlingLocationChecker(this)) {
                 truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_STACK;
             }
-
-            System.out.println("The truck with id #" + id + " is at the stack...");
 
             //If the truck pass the checker that means the truck is no need to wait anymore. This truck is at the stack now
             truckLocation = TruckLocation.AT_THE_STACK;
@@ -349,12 +344,11 @@ public class Truck implements Runnable {
                 Thread.currentThread().interrupt();
             }
 
-            //Here we remove the truck from the gate outbound lane
-            TruckService.endGateRemover(this);
 
             //And finally we update the truckLocation with value PASSED_THE_EXIT_GATE
             truckLocation = TruckLocation.PASSED_THE_EXIT_GATE;
-
+            //Here we remove the truck from the outbound lane
+            TruckService.endGateRemover(this);
             //This truck has done his job :)
             //The thread will shut down
         }
