@@ -23,7 +23,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class TruckService {
 
 
-    //I created a lists because I need to store somewhere all the trucks at different place that the user instantiate
+    //I created a lists and queues because I need to store somewhere all the trucks at different place that the user instantiate
     //I didn't use a database because this is a small application and with simple lists I can store the trucks an anything
     private static Gate gate;
     private static final Queue<Truck> parkingPlace = new ConcurrentLinkedQueue<>();
@@ -51,7 +51,7 @@ public class TruckService {
      * @param handlingLocations the number of handling location
      * @return a nice response to the REST API
      */
-    public ResponseEntity<Response> creatingAGate(int inBoundLanes, int outBoundLanes, int handlingLocations) {
+    public ResponseEntity<Response> createAGate(int inBoundLanes, int outBoundLanes, int handlingLocations) {
         Response response = new Response();
         if (inBoundLanes > 0 && outBoundLanes > 0 && handlingLocations > 0) {
             gate = new Gate(inBoundLanes, outBoundLanes, handlingLocations);
@@ -70,7 +70,7 @@ public class TruckService {
     }
 
     /**
-     * This method accept a List of trucks and everytime and call the addTruckToTheInBoundLane()
+     * This method accept a List of trucks and everytime call the addTruckToTheInBoundLane()
      * that many times as truck much as is in the List that is passed by the user
      *
      * @param trucks a list with trucks
@@ -124,7 +124,7 @@ public class TruckService {
      * @param truck a truck object
      * @return true if is free place at handling location, false if the truck is needed to wait
      */
-    public synchronized static boolean handlingLocationChecker(Truck truck) {
+    public synchronized static boolean checkIfTheTruckCanGoToTheHandlingLocation(Truck truck) {
         if (!trucksWaitingForFreePlaceAtHandlingLocation.contains(truck)) {
             trucksWaitingForFreePlaceAtHandlingLocation.add(truck);
         }
@@ -142,7 +142,7 @@ public class TruckService {
      *
      * @param truck a truck object
      */
-    public static void handlingLocationRemover(Truck truck) {
+    public static void removeTheTruckFromHandlingLocationList(Truck truck) {
         trucksAtHandlingLocations.remove(truck);
     }
 
@@ -158,7 +158,7 @@ public class TruckService {
      * @return true if the truck can be added to the outbound-lane, false if the truck
      * can't be added to the outbound-lane
      */
-    public synchronized static boolean endGateChecker(Truck truck){
+    public synchronized static boolean checkIfTheTruckCanGoToTheExitGate(Truck truck){
         if (!trucksWaitingAtExit.contains(truck)) {
             trucksWaitingAtExit.add(truck);
         }
@@ -171,6 +171,13 @@ public class TruckService {
         return false;
     }
 
+    /**
+     * This method removes the truck form the outbound_lane
+     * @param truck object
+     */
+    public synchronized static void removeTheTruckFromOutBoundLanes(Truck truck) {
+        gate.getTrucksAtOutboundLanes().remove(truck);
+    }
 
     /**
      * This method is only executed by the method which is annotated with @Scheduled
@@ -189,16 +196,6 @@ public class TruckService {
             }
         }
     }
-
-
-    /**
-     * This method removes the truck form the outbound_lane
-     * @param truck object
-     */
-    public synchronized static void endGateRemover(Truck truck) {
-        gate.getTrucksAtOutboundLanes().remove(truck);
-    }
-
 
     /**
      * If the parking place is not empty then send a truck for the parking place, else
@@ -220,7 +217,6 @@ public class TruckService {
 
     /**
      * This method return all the trucks (the number, how many) which are at start gate grouped by truck type
-     *
      * @return map with two key values, trucks that delivers and trucks that receive, and there values, how many are
      * per delivery and per receive.
      */

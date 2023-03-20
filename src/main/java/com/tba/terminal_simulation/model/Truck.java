@@ -142,7 +142,7 @@ public class Truck implements Runnable {
             //book place at the 3 handling location. Other 2 truck needs to wait until one truck go away from the handling
             //location and returning to the exit gate. If the trucks can go to the handling location than this method also
             //add to the that list
-            while (!TruckService.handlingLocationChecker(this)) {
+            while (!TruckService.checkIfTheTruckCanGoToTheHandlingLocation(this)) {
                 //Also I update the location of this truck
                 truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_STACK;
             }
@@ -170,7 +170,7 @@ public class Truck implements Runnable {
             truckLocation = TruckLocation.RETURNING_FROM_THE_STACK;
 
             //Here we call this static method to remove the truck from the handlingLocation list
-            TruckService.handlingLocationRemover(this);
+            TruckService.removeTheTruckFromHandlingLocationList(this);
 
             //I create this executor service to handle the time for the truck which returning from the stack, from the
             //handling location
@@ -192,9 +192,11 @@ public class Truck implements Runnable {
             //Here I check if the User has entered different inbound and outbound lanes, then only that number
             //of trucks to go to the exit lane. If for example 3 truck is returning form the handling location, from the stack
             //and the gate has only 2 outbound lane than 1 truck needs to wait until 1 of 2 trucks passed the exit gate
-            while (!TruckService.endGateChecker(this)) {
+            while (!TruckService.checkIfTheTruckCanGoToTheExitGate(this)) {
                 truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_EXIT_GATE;
             }
+
+            System.out.println("The truck with id #" + id + " is at the exit gate...");
 
             //If the truck passed checker that means the truck it doesn't need to wait anymore, and we can update the truckLocation
             //to AT_EXIT_GATE
@@ -220,7 +222,7 @@ public class Truck implements Runnable {
             truckLocation = TruckLocation.PASSED_THE_EXIT_GATE;
 
             //Here we remove the truck from the outbound lane
-            TruckService.endGateRemover(this);
+            TruckService.removeTheTruckFromOutBoundLanes(this);
 
             //This truck has done his job :)
             //The thread will shut down
@@ -273,9 +275,11 @@ public class Truck implements Runnable {
             //book place at the 3 handling location. Other 2 truck needs to wait until one truck go away from the handling
             //location and returning to the exit gate. If the trucks can go to the handling location than this method also
             //add to the that list
-            while (!TruckService.handlingLocationChecker(this)) {
+            while (!TruckService.checkIfTheTruckCanGoToTheHandlingLocation(this)) {
                 truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_STACK;
             }
+
+            System.out.println("The truck with id #" + id + " is at the stack...");
 
             //If the truck pass the checker that means the truck is no need to wait anymore. This truck is at the stack now
             truckLocation = TruckLocation.AT_THE_STACK;
@@ -299,7 +303,7 @@ public class Truck implements Runnable {
             truckLocation = TruckLocation.RETURNING_FROM_THE_STACK;
 
             //Here we call this static method to remove the truck from the handlingLocation list
-            TruckService.handlingLocationRemover(this);
+            TruckService.removeTheTruckFromHandlingLocationList(this);
 
             // Create a new executor instance, which will handle the time for that trucks which are coming back from the stack
             ScheduledExecutorService atExitGateArea = Executors.newSingleThreadScheduledExecutor();
@@ -320,9 +324,11 @@ public class Truck implements Runnable {
             //Here I check if the User has entered different inbound and outbound lanes, then only that number
             //of trucks to go to the exit lane. If for example 3 truck is returning form the handling location, from the stack
             //and the gate has only 2 outbound lane than 1 truck needs to wait until 1 of 2 trucks passed the exit gate
-            while (!TruckService.endGateChecker(this)) {
+            while (!TruckService.checkIfTheTruckCanGoToTheExitGate(this)) {
                 truckLocation = TruckLocation.WAITING_FOR_FREE_PLACE_AT_THE_EXIT_GATE;
             }
+
+            System.out.println("The truck with id #" + id + " is at the exit gate...");
 
             //If the truck passed checker that means the truck it doesn't need to wait anymore, and we can update the truckLocation
             //to AT_EXIT_GATE
@@ -348,7 +354,7 @@ public class Truck implements Runnable {
             //And finally we update the truckLocation with value PASSED_THE_EXIT_GATE
             truckLocation = TruckLocation.PASSED_THE_EXIT_GATE;
             //Here we remove the truck from the outbound lane
-            TruckService.endGateRemover(this);
+            TruckService.removeTheTruckFromOutBoundLanes(this);
             //This truck has done his job :)
             //The thread will shut down
         }

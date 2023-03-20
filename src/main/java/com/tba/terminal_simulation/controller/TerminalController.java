@@ -34,7 +34,7 @@ public class TerminalController {
 
     @PostMapping("api/gate/create")
     public ResponseEntity<Response> createAGate(@RequestBody Gate gate){
-        return truckService.creatingAGate(gate.getInBoundLanes(), gate.getOutBoundLanes(), gate.getHandlingLocations());
+        return truckService.createAGate(gate.getInBoundLanes(), gate.getOutBoundLanes(), gate.getHandlingLocations());
     }
 
     @GetMapping("api/trucks/gate")
